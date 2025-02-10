@@ -1,7 +1,7 @@
 
 # Model Configuration
 model_path: 'microsoft/Phi-3-mini-4k-instruct' # "Qwen/Qwen2.5-1.5B-Instruct"
-cache_dir: "/home/data/v.moskvoretskii/cache/"
+cache_dir: "cache_dir"
 gpu_memory_utilization: 0.97        # GPU memory utilization (0.0 to 1.0)
 enforce_eager: True                # Whether to enforce eager execution
 max_model_len: 4096                # Maximum model length
