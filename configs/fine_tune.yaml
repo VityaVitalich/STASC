@@ -19,11 +19,11 @@ data:
 
 training:
   output_dir: "./my-finetuned-llama-fsdp" # STaR overwrites it
-  learning_rate: 1.0e-5
+  learning_rate: 7.0e-6
   num_train_epochs: 1
-  per_device_train_batch_size: 2
-  per_device_eval_batch_size: 2
-  gradient_accumulation_steps: 1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 4
   gradient_checkpointing: false
   max_steps: -1
   save_strategy: "no"
@@ -31,7 +31,7 @@ training:
   evaluation_strategy: "no"
   eval_steps: 1
   weight_decay: 0.1
-  warmup_ratio: 0.03
+  warmup_ratio: 0.05
   lr_scheduler_type: "cosine"
   logging_steps: 10
   do_train: true
