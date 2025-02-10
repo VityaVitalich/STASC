@@ -1,10 +1,10 @@
 # Paper Title
 
-This repository contains code for paper ...
+This repository contains code for paper SELF-TAUGHT SELF-CORRECTION FOR SMALL LANGUAGE MODELS
 
 ## 🚀 Running STaSC
 
-To reproduce the experiments and run different versions of the **Self-Taught Self-Correction (STaSC) algorithm** as described in the paper, use the following command with the specified configuration files:
+To reproduce the experiments and run different versions of the **Generalized Self-Taught Self-Correction (G-STaSC) algorithm** as described in the paper, use the following command with the specified configuration files:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0,1 python star_correction.py \
