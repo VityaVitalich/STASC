@@ -1,19 +1,19 @@
-# Paper Title
+# Self-Taught Self-Correction for Small Language Models (STaSC)
 
-This repository contains code for paper ...
+This repository contains code for paper [Self-Taught Self-Correction for Small Language Models](https://arxiv.org/abs/2503.08681) from ICLR 2025 SSI-FM Workshop.
 
 ## 🚀 Running STaSC
 
 To reproduce the experiments and run different versions of the **Self-Taught Self-Correction (STaSC) algorithm** as described in the paper, use the following command with the specified configuration files:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0,1 python star_correction.py \
-  --config configs/self_correction_star_config.yaml \
+CUDA_VISIBLE_DEVICES=0,1 python stasc.py \
+  --config configs/stasc_config.yaml \
   --ft_config configs/fine_tune.yaml \
   --accelerate_config_path configs/accelerate_config.yaml
 ```
 
-The `self_correction_star_config.yaml` file, which defines the key parameters for self-correction, is detailed in [Section: Self-Correction Configuration](#self-correction-configuration).
+The `stasc_config.yaml` file, which defines the key parameters for self-correction, is detailed in [Section: Self-Correction Configuration](#self-correction-configuration).
 
 The `fine_tune.yaml` file, which defines the key parameters for fine-tuning, is detailed in [Section: Fine-Tuning Configuration](#fine-tuning-configuration).
 
@@ -31,10 +31,13 @@ The `accelerate_config.yaml` file defines the parameters for distributed trainin
 | `gpu_memory_utilization` | `0.9`                                    | GPU memory allocation fraction (0.0 - 1.0). |
 | `enforce_eager`         | `True`                                    | Whether to enforce eager execution for debugging. |
 | `max_model_len`         | `8192`                                   | Maximum sequence length for the model. |
+| `random_seed`         | `42`                                   | Random seed for generations. |
+
 
 ### 📊 Dataset Configuration
 | Parameter         | Value                       | Description |
 |------------------|---------------------------|-------------|
+| `task_type`      | `qa`       | Type of task (`qa` or `math`). To reproduce the paper use `qa`. |
 | `data_path`      | `data/datasets/s_nq`       | Path to the dataset used for QA evaluation. |
 | `id_col`         | `question_id`              | Unique identifier column in the dataset. |
 | `question_col`   | `question_text`            | Column containing the input question text. |
@@ -48,6 +51,16 @@ The `accelerate_config.yaml` file defines the parameters for distributed trainin
 | `initial_answer_with_new_model`  | `True`  | Whether to generate initial answers with \(M_0\) (True) or \(M_{n-1}\) (False). |
 | `only_better_correction`         | `True`  | Whether to use strictly improving corrections (True) or allow neutral ones (False). |
 | `train_from_initial_model`       | `True`  | Whether to fine-tune from \(M_0\) (True) or from \(M_{n-1}\) (False). |
+
+### 🔁 Reward Function Parameters
+
+| Parameter                        | Value   | Description |
+|----------------------------------|---------|-------------|
+| `evaluator_mode`       | `default`  | Whether to count the entire generation as answer or only final response after CoT. To reproduce use `default`. |
+| `evaluator_function`       | `in_acc`  | Reward function, use `in_acc` to reproduce. |
+| `evaluator_answer_marker`       | `Final:`  | Marker separating answer from CoT, not used for `default` mode. |
+
+
 
 ### 📝 Generation Configuration
 | Parameter                      | Value         | Description |
@@ -127,3 +140,5 @@ This section describes the fine-tuning configuration. The configuration is divid
 | `dora`             | `false` | Whether to enable DoRA (Decoupled LoRA). |
 
 ---
+
+
