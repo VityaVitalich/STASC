@@ -7,6 +7,10 @@ sys.path.append('./')
 
 os.environ["VLLM_LOGGING_LEVEL"] = 'FATAL'
 
+import torch._dynamo
+torch._dynamo.config.suppress_errors = True
+
+
 import argparse
 from pathlib import Path
 import datasets

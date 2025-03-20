@@ -245,7 +245,7 @@ def run_train(
 
     lm_datasets.set_format(type="pt")
     # Filter out any examples that are all -100
-    lm_datasets = lm_datasets.filter(lambda x: (x["labels"] != -100).any())
+    lm_datasets = lm_datasets.filter(lambda x: (x["labels"] != -100).any(), load_from_cache_file=False)
 
     # 7) Data collator
     data_collator = DataCollatorForSeq2Seq(
