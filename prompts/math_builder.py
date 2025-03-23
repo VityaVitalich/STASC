@@ -147,7 +147,10 @@ class ScoreMathPromptBuilder(BasePromptBuilder):
         user_question = self._create_user_question(question)
 
         messages = [
-            {"role": "user", "content": self.initial_instructions},
+            # score type
+            # {"role": "user", "content": self.initial_instructions},
+            # qwen type
+            {"role": "system", "content": self.init_system_prompt},
             {"role": "user", "content": user_question},
             {"role": "assistant", "content": init_answer},
             {"role": "user", "content": self.correction_instructions},
