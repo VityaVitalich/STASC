@@ -42,10 +42,21 @@ class ScoreMathPromptBuilder(BasePromptBuilder):
     initial_instructions = None
 
     # # The instructions for correction
+    # instruction from SCoRE
+#    correction_instructions = (
+ #       "There might be an error in the solution above because of lack of understanding of the question."
+  #      " Please correct the error, if any, and rewrite the solution. Put your final answer within \\boxed{{}}"
+  #  )
+    
+    # qa like
     correction_instructions = (
-        "There might be an error in the solution above because of lack of understanding of the question."
-        " Please correct the error, if any, and rewrite the solution. Put your final answer within \\boxed{{}}"
+        "Consider the question and the initial answer. "
+        "Generate a correction to the initial answer if it is incorrect. "
+        "Disregard the information you already have, look for other options. "
+        "Do not use the information that does not match your criteria."
+        "Put your final answer within \\boxed{{}}"
     )
+ 
 
     init_system_prompt = "Please reason step by step, and put your final answer within \\boxed{{}}"
 
