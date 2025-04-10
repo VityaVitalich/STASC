@@ -51,8 +51,8 @@ class QAPromptBuilder(BasePromptBuilder):
         "Please use the provided documents and reason through the question step by step very shortly before giving a final answer."
     )
     rag_initial_instructions = (
-        "Consider the Documents provided below, then"
-        "Generate a short chain-of-thought rationale very shortly, and then provide the final answer.\n"
+        "Consider the Documents provided below, then "
+        "generate a short chain-of-thought rationale very shortly, and then provide the final answer.\n"
         "Step-by-step reasoning:\n"
         "Final Answer:\n"
     )
@@ -92,12 +92,19 @@ class QAPromptBuilder(BasePromptBuilder):
 
     def _create_context(self, contexts: List[str], num_documents: int):
         
+        limit = min(num_documents, len(contexts))
         resulting_string = ""
-        for i, document in enumerate(contexts[:num_documents]):
+        for i, document in enumerate(contexts[:limit]):
             resulting_string += f'Document {i}\n\n'
             resulting_string += f'{document}\n\n'
 
         return resulting_string
+
+    def _prepend_context(self, prompt, sample, context_col):
+
+        all_context = sample.get(context_col, [""])
+        context_prompt = self._create_context(all_context, num_documents=self.num_documents)
+        return context_prompt + prompt
 
     def build_initial_generation_prompt(
         self,
@@ -114,13 +121,7 @@ class QAPromptBuilder(BasePromptBuilder):
         # Build user question
         question_text = sample.get(question_col, "")
         user_question = self._create_user_question(question_text)
-
-        # Build context
-        if self.use_init_context:
-            all_context = sample.get(context_col, [""])
-            context_prompt = self._create_context(all_context, num_documents=self.num_documents)
-            user_question = context_prompt + user_question
-
+        user_question = self._prepend_context(user_question, sample, context_col) if self.use_init_context else user_question
 
         # Compose messages
         messages = compose_chat_messages(
@@ -150,17 +151,14 @@ class QAPromptBuilder(BasePromptBuilder):
         **kwargs
     ):
 
-        correction_prompt = self.corr_instructions
 
         question_text = sample.get(question_col, "")
         user_question = self._create_user_question(question_text)
+        user_question = self._prepend_context(user_question, sample, context_col) if self.use_init_context else user_question
+
         initial_answers = sample.get(initial_answer_col, [])
 
-        # Build context
-        if self.use_corr_context:
-            all_context = sample.get(context_col, [""])
-            context_prompt = self._create_context(all_context, num_documents=self.num_documents)
-            correction_prompt = context_prompt + self.corr_instructions
+        correction_prompt = self._prepend_context(self.corr_instructions, sample, context_col) if self.use_corr_context else self.corr_instructions
 
         all_correction_prompts = []
         for init_ans in initial_answers:
@@ -187,8 +185,8 @@ class QAPromptBuilder(BasePromptBuilder):
         question,
         init_answer,
         correction,
+        all_context,
         few_shot_prompts=None,
-        context_col='context',
         *args,
         **kwargs
     ):
@@ -205,19 +203,10 @@ class QAPromptBuilder(BasePromptBuilder):
         #messages.append({"role": "system", "content": self.system_prompt_corr})
 
         user_question = self._create_user_question(question)
-        
-        # Build context
-        if self.use_init_context:
-            all_context = sample.get(context_col, [""])
-            context_prompt = self._create_context(all_context, num_documents=self.num_documents)
-            user_question = context_prompt + user_question
+        user_question = (self._create_context(all_context, self.num_documents) + user_question) if self.use_init_context else user_question
 
-        correction_prompt = self.corr_instructions
-        # Build context
-        if self.use_corr_context:
-            all_context = sample.get(context_col, [""])
-            context_prompt = self._create_context(all_context, num_documents=self.num_documents)
-            correction_prompt = context_prompt + self.corr_instructions
+        correction_prompt = (self._create_context(all_context, self.num_documents) + user_question) if self.use_corr_context else self.corr_instructions
+
         
         messages = [
                 {"role": "system", "content": self.system_prompt},
