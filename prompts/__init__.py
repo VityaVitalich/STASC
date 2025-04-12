@@ -11,4 +11,4 @@ def get_prompt_builder(task_type: str):
     if not builder_cls:
         raise ValueError(f"Unknown task_type={task_type}. "
                          f"Available types: {list(PROMPT_BUILDERS.keys())}")
-    return builder_cls()
+    return builder_cls

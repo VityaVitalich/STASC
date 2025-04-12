@@ -183,7 +183,7 @@ def run_train(
             lora_dropout=lora_args.lora_dropout,
             target_modules=lora_args.lora_target_modules,
             init_lora_weights=True,
-            use_dora=lora_args.dora
+            #use_dora=lora_args.dora
         )
         model = get_peft_model(model, lora_config)
 
@@ -241,6 +241,7 @@ def run_train(
             if col not in ["input_ids", "labels", "attention_mask", "position_ids"]
         ],
         desc="Tokenizing and reformatting instruction data",
+        load_from_cache_file=False
     )
 
     lm_datasets.set_format(type="pt")

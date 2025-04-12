@@ -60,6 +60,11 @@ class ScoreMathPromptBuilder(BasePromptBuilder):
 
     init_system_prompt = "Please reason step by step, and put your final answer within \\boxed{{}}"
 
+
+    def __init__(self, config):
+        
+        self.config = config
+
     def _create_user_question(self, question_text: str):
         # SCORE type
        # return f"Problem:\n{question_text}\n\nSolution:"

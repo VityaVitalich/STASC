@@ -99,6 +99,7 @@ def collect_improving_corrections(
     prompt_builder,
     question_col="question",
     reference_col="reference",
+    context_col="context",
     # Initial Answer column
     inital_answer_col="star_generation_answer",
     # Correction column
@@ -122,6 +123,7 @@ def collect_improving_corrections(
         row_id = row[id_col]
         question = row[question_col]
         reference = row[reference_col]
+        all_context = row.get(context_col, [''])
 
         # 1) Retrieve generation answers/rationales
         for init_answer in row[inital_answer_col]:
@@ -144,7 +146,7 @@ def collect_improving_corrections(
                     new_corrections.append([correction])
 
 
-                    messages = prompt_builder.build_correction_messages_with_final_answer(question, init_answer, correction)
+                    messages = prompt_builder.build_correction_messages_with_final_answer(question, init_answer, correction, all_context)
                     new_messages.append(messages)
 
 
@@ -287,7 +289,7 @@ def main():
 
 
     tokenizer = AutoTokenizer.from_pretrained(config['model_path'], cache_dir=config['cache_dir'])
-    prompt_builder = get_prompt_builder(config['task_type'])
+    prompt_builder = get_prompt_builder(config['task_type'])(config)
     reward_function = RewardEvaluator(config)
 
 
@@ -301,6 +303,7 @@ def main():
         tokenizer=tokenizer,
         question_col=config['question_col'],
         few_shot_prompts=initial_generation_few_shot,
+        context_col=config['context_col']
     )
 
     correction_prompt_func = partial(
@@ -308,7 +311,8 @@ def main():
         tokenizer=tokenizer,
         question_col=config['question_col'],
         few_shot_prompts=correction_few_shot,
-        initial_answer_col='star_correction_initial_generation'
+        initial_answer_col='star_correction_initial_generation',
+        context_col=config['context_col']
     )
 
     print(f"Generating from Model {args.generation_model_path}")

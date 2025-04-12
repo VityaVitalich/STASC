@@ -238,6 +238,12 @@ def encode_with_messages_format_chat_template(example, tokenizer, architecture):
         model_name = 'phi'
         # phi special token is <assistant>
         special_token = 32001
+    if 'llama' in architecture.lower():
+        model_name = 'llama'
+        special_token = 128006
+        # llama special start token is <|start_header_id|>, however it also appends assistant and end_header_id and \n\n
+        # FIX FOR 3.1. Do not add generation prompt at the end
+        input_ids = input_ids[:-4]
 
     # find the special tokens for starting assistance generation
     special_assistant_start_indices = (input_ids == special_token).nonzero(as_tuple=True)[0]
@@ -248,6 +254,8 @@ def encode_with_messages_format_chat_template(example, tokenizer, architecture):
     if model_name == 'qwen':
         # so we would not count 2 additional tokens (assistant, \n, as they are appended at the beggining and is part of template)
         last_assistant += 2
+    if model_name == 'llama':
+        last_assistant += 3
 
     # Generate labels: -100 for tokens before pre-last EOS, rest as input_ids
     labels = torch.full_like(input_ids, fill_value=-100)
