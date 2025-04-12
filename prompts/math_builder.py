@@ -136,6 +136,9 @@ class ScoreMathPromptBuilder(BasePromptBuilder):
                 {"role": "user", "content": self.correction_instructions},
             ]
 
+            if few_shot_prompts:
+                messages.extend(few_shot_prompts)
+
 
             # Convert messages to final text
             final_prompt = tokenizer.apply_chat_template(
