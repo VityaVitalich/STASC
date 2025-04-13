@@ -25,6 +25,207 @@ import threading
 import torch
 import logging
 
+
+def get_informative_candidate(
+    sample,
+    current_iteration,
+    initial_gen_col="self_refine_initial_generation",
+    feedback_prefix="self_refine_feedback_",
+    refinement_prefix="self_refine_refinement_",
+    trigger_phrase="!The Answer is correct!"
+):
+    """
+    For a given sample and current iteration index (where the feedback contains the trigger),
+    roll back along the candidate chain until we find the most recent informative candidate.
+
+    Informative means that the candidate was obtained from an update (i.e. its iteration's feedback
+    did NOT contain the trigger phrase). For iteration 0 or if no informative update is found,
+    return the initial generation candidate.
+
+    Returns the candidate answer string.
+    """
+    # For iteration 0, there is no roll-back available.
+    if current_iteration == 0:
+        init_ans = sample.get(initial_gen_col, [""])
+        return init_ans[0] if isinstance(init_ans, list) and init_ans else init_ans
+
+    # Iterate backward from current_iteration-1 down to 0.
+    for j in range(current_iteration - 1, -1, -1):
+        fb_key = f"{feedback_prefix}{j}"
+        # If a feedback exists for iteration j, check if it does NOT contain the trigger.
+        if fb_key in sample:
+            feedback_j = sample.get(fb_key)
+            if isinstance(feedback_j, list):
+                feedback_j = feedback_j[0]
+            # If this iteration j was not a kept‐same event, then candidate for iteration j is informative.
+            if trigger_phrase not in feedback_j:
+                # Get the candidate produced in iteration j.
+                if j == 0:
+                    cand = sample.get(initial_gen_col, [""])
+                    return cand[0] if isinstance(cand, list) and cand else cand
+                else:
+                    ref_key = f"{refinement_prefix}{j}"
+                    if ref_key in sample:
+                        cand = sample.get(ref_key)
+                        if isinstance(cand, list):
+                            cand = cand[0]
+                        return cand
+    # Fallback: if no informative update is found, return the initial generation.
+    init_ans = sample.get(initial_gen_col, [""])
+    return init_ans[0] if isinstance(init_ans, list) and init_ans else init_ans
+
+
+def compute_current_iteration_stats(
+    ds,
+    iteration,
+    gt_col,
+    evaluator,
+    initial_gen_col="self_refine_initial_generation",
+    feedback_prefix="self_refine_feedback_",
+    refinement_prefix="self_refine_refinement_",
+    trigger_phrase="is correct",
+    threshold=0.5
+):
+    """
+    For a given iteration index (i), compute the following for samples that have that iteration:
+
+    A) If the feedback for iteration i contains the trigger_phrase (i.e. kept_same event):
+         - Instead of using the immediate previous candidate (which may also have been kept), roll back
+           through earlier iterations (via get_informative_candidate) to get an informative candidate.
+         - Evaluate whether that rolled-back candidate is correct or incorrect.
+
+    B) If the feedback does NOT contain the trigger_phrase and a refinement exists, then treat this as an update:
+         - Evaluate the transition from the previous candidate (from iteration i-1 or initial generation)
+           to the new candidate (from refinement i).
+         - Classify the transition as:
+               - incorrect_to_correct (prev incorrect, new correct),
+               - correct_to_incorrect (prev correct, new incorrect),
+               - correct_to_correct (prev and new both correct).
+         - (Transitions from incorrect to incorrect are not tracked.)
+
+    Returns a dictionary with the following keys:
+       - total_samples: # of samples with current iteration feedback.
+       - kept_same_percentage: % of samples that used kept_same.
+       - kept_same_correct_percentage: Among kept_same events, % whose informative candidate is correct.
+       - kept_same_incorrect_percentage: Among kept_same events, % whose informative candidate is incorrect.
+       - incorrect_to_correct_percentage: Among updates, % transitioning from incorrect to correct.
+       - correct_to_incorrect_percentage: Among updates, % transitioning from correct to incorrect.
+       - correct_to_correct_percentage: Among updates, % transitioning from correct to correct.
+       - update_percentage: % of samples that underwent an update (refinement applied) at iteration i.
+    """
+    total_samples = 0
+
+    # Counters for kept_same events.
+    kept_same_count = 0
+    kept_same_correct = 0
+    kept_same_incorrect = 0
+
+    # Counters for update events (where a refinement was applied).
+    update_count = 0
+    incorrect_to_correct = 0
+    correct_to_incorrect = 0
+    correct_to_correct = 0
+
+    for sample in ds:
+        # Determine previous candidate answer.
+        total_samples += 1
+        if iteration == 0:
+            prev_ans_raw = sample.get(initial_gen_col, [""])
+            prev_ans = prev_ans_raw[0] if isinstance(prev_ans_raw, list) and prev_ans_raw else prev_ans_raw
+        else:
+            prev_key = f"{refinement_prefix}{iteration - 1}"
+            prev_raw = sample.get(prev_key)
+            prev_ans = prev_raw[0] if isinstance(prev_raw, list) else prev_raw
+
+        fb_key = f"{feedback_prefix}{iteration}"
+        feedback_raw = sample.get(fb_key)
+        feedback = feedback_raw[0] if isinstance(feedback_raw, list) else feedback_raw
+
+
+        # Case A: Kept_same event if the feedback contains trigger_phrase.
+        if trigger_phrase in feedback.lower():
+            kept_same_count += 1
+            # Instead of using prev_ans directly, roll back to get the informative candidate.
+            baseline_ans = get_informative_candidate(
+                sample,
+                current_iteration=iteration,
+                initial_gen_col=initial_gen_col,
+                feedback_prefix=feedback_prefix,
+                refinement_prefix=refinement_prefix,
+                trigger_phrase=trigger_phrase
+            )
+            ground_truth = sample[gt_col]
+            score = evaluator(ground_truth=ground_truth, model_answer=baseline_ans)
+            if score >= threshold:
+                kept_same_correct += 1
+            else:
+                kept_same_incorrect += 1
+        else:
+            # Case B: Update event—check for corresponding refinement.
+            ref_key = f"{refinement_prefix}{iteration}"
+            if ref_key not in sample:
+                continue  # Cannot process update if refinement is missing.
+            update_count += 1
+            new_raw = sample.get(ref_key)
+            new_ans = new_raw[0] if isinstance(new_raw, list) else new_raw
+            ground_truth = sample[gt_col]
+            # Use immediate previous candidate (since update is occurring).
+            prev_score = evaluator(ground_truth=ground_truth, model_answer=prev_ans)
+            new_score = evaluator(ground_truth=ground_truth, model_answer=new_ans)
+            prev_correct = prev_score >= threshold
+            new_correct = new_score >= threshold
+            if (not prev_correct) and new_correct:
+                incorrect_to_correct += 1
+            elif prev_correct and (not new_correct):
+                correct_to_incorrect += 1
+            elif prev_correct and new_correct:
+                correct_to_correct += 1
+            # Transitions from incorrect to incorrect are not recorded.
+
+    # If no sample processed for current iteration, return zeros.
+    if total_samples == 0:
+        return {
+            "total_samples": 0,
+            "kept_same_percentage": 0,
+            "kept_same_correct_percentage": 0,
+            "kept_same_incorrect_percentage": 0,
+            "incorrect_to_correct_percentage": 0,
+            "correct_to_incorrect_percentage": 0,
+            "correct_to_correct_percentage": 0,
+            "update_percentage": 0
+        }
+
+    kept_same_percentage = (kept_same_count / total_samples) * 100
+    update_percentage = (update_count / total_samples) * 100
+
+    if kept_same_count > 0:
+        kept_same_correct_percentage = (kept_same_correct / kept_same_count) * 100
+        kept_same_incorrect_percentage = (kept_same_incorrect / kept_same_count) * 100
+    else:
+        kept_same_correct_percentage = 0
+        kept_same_incorrect_percentage = 0
+
+    if update_count > 0:
+        incorrect_to_correct_percentage = (incorrect_to_correct / total_samples) * 100
+        correct_to_incorrect_percentage = (correct_to_incorrect / total_samples) * 100
+        correct_to_correct_percentage = (correct_to_correct / total_samples) * 100
+    else:
+        incorrect_to_correct_percentage = 0
+        correct_to_incorrect_percentage = 0
+        correct_to_correct_percentage = 0
+
+    return {
+        "total_samples": total_samples,
+        "kept_same_percentage": kept_same_percentage,
+        "kept_same_correct_percentage": kept_same_correct_percentage,
+        "kept_same_incorrect_percentage": kept_same_incorrect_percentage,
+        "incorrect_to_correct_percentage": incorrect_to_correct_percentage,
+        "correct_to_incorrect_percentage": correct_to_incorrect_percentage,
+        "correct_to_correct_percentage": correct_to_correct_percentage,
+        "update_percentage": update_percentage
+    }
+
+
 def get_final_refined_answer(sample, initial_gen_col="self_refine_initial_generation",
                              feedback_prefix="self_refine_feedback_",
                              refinement_prefix="self_refine_refinement_",
@@ -184,7 +385,7 @@ def main():
 
     # Load dataset
     dataset = datasets.load_from_disk(str(config['data_path']))
-    train_data, test_data = dataset["train"], dataset["test"]
+    _, test_data = dataset["train"], dataset["test"]
 
 
     tokenizer = AutoTokenizer.from_pretrained(config['model_path'], cache_dir=config['cache_dir'])
@@ -249,8 +450,8 @@ def main():
         seed=config['random_seed']
     )
 
-    train_data = perform_generation(
-        data=train_data,
+    test_data = perform_generation(
+        data=test_data,
         model=model,
         prompt_func=initial_generation_prompt_func,
         sampling_params=sampling_params,
@@ -258,7 +459,7 @@ def main():
         output_col=f"self_refine_initial_generation"
     )
     acc = KM(
-        train_data, 
+        test_data, 
         target_col='self_refine_initial_generation', 
         gt_col=config['gold_col'],
         evaluator=reward_function
@@ -271,8 +472,8 @@ def main():
     for iteration in range(config['num_refine_iterations']):
         logger.info(f"Starting feedback {iteration + 1}/{config['num_refine_iterations']}")
 
-        train_data = perform_generation(
-            data=train_data,
+        test_data = perform_generation(
+            data=test_data,
             model=model,
             prompt_func=feedback_prompt_func,
             sampling_params=sampling_params,
@@ -283,8 +484,8 @@ def main():
         logger.info(f"Starting refinement {iteration + 1}/{config['num_refine_iterations']}")
 
 
-        train_data = perform_generation(
-            data=train_data,
+        test_data = perform_generation(
+            data=test_data,
             model=model,
             prompt_func=refine_prompt_func,
             sampling_params=sampling_params,
@@ -292,13 +493,28 @@ def main():
             output_col=f"self_refine_refinement_{iteration}"
         )
 
-        acc = KM_self_refine(train_data,
+        acc = KM_self_refine(test_data,
         gt_col=config['gold_col'],
         evaluator=reward_function)
         logger.info(f"Refinement Accuracy {acc} at iteration {iteration + 1}/{config['num_refine_iterations']}")
 
+        stats = compute_current_iteration_stats(
+            test_data,
+            iteration,
+            gt_col=config['gold_col'],
+            evaluator=reward_function,
+        )
+        logger.info(
+    f"[INFO] Test Correction Statistics at step {iteration}:\n"
+    f"[INFO]       - Correct → Incorrect: {stats['correct_to_incorrect_percentage']:.2f}%\n"
+    f"[INFO]       - Correct → Correct: {stats['correct_to_correct_percentage']:.2f}%\n"
+    f"[INFO]       - Incorrect → Correct: {stats['incorrect_to_correct_percentage']:.2f}%\n"
+    f"[INFO]       - Kept Same: {stats['kept_same_percentage']:.2f}% "
+    f"(Correct: {stats['kept_same_correct_percentage']:.2f}%, "
+    f"Incorrect: {stats['kept_same_incorrect_percentage']:.2f}%)"
+)
 
-    train_data.save_to_disk(run_dir)
+    test_data.save_to_disk(run_dir)
     logger.info("Self-Refine algorithm completed.")
 
 if __name__ == "__main__":
