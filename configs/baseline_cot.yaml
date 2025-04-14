@@ -2,9 +2,9 @@
 # Model Configuration
 model_path: "Qwen/Qwen2.5-1.5B-Instruct" #'microsoft/Phi-3-mini-4k-instruct' # "Qwen/Qwen2.5-1.5B-Instruct" # "Qwen/Qwen2.5-Math-1.5B-Instruct"
 cache_dir: "/home/data/v.moskvoretskii/cache/"
-gpu_memory_utilization: 0.95        # GPU memory utilization (0.0 to 1.0)
+gpu_memory_utilization: 0.4        # GPU memory utilization (0.0 to 1.0)
 enforce_eager: False               # Whether to enforce eager execution
-max_model_len: 16000                # Maximum model length
+max_model_len: 2048                # Maximum model length
 random_seed: 42
 
 # Dataset Configuration 
@@ -14,12 +14,12 @@ id_col: "question_id"                        # Unique identifier column in the d
 question_col: "question_text"            # Column containing the question text. "question_text" for QA, "problem" for math500
 gold_col: "reference"                   # Reference/GT answer column. "reference" for QA, "answer" for math500
 context_col: "gold_context" # column to retrieve context if RAG is enabled
-use_init_context: true # if using RAG on initial answers
+use_init_context: false # if using RAG on initial answers
 num_documents: 1 # number of used documents from retrieved
 
 use_cot: True
 
-run_name: "qwen_hotpot_1.5b_self_refine"
+run_name: "test_baseline"
 
 # Reward Function
 evaluator_mode: 'final'   # "default" will input all answer in reward func, "final" only string after "evaluator_answer_marker"
