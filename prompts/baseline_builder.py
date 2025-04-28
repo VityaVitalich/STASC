@@ -26,6 +26,9 @@ class BaselinePromptBuilder(BasePromptBuilder):
         self.system_prompt = self.initial_cot_system_prompt if self.use_cot else self.initial_no_cot_system_prompt
         self.instructions = self.initial_cot_instructions if self.use_cot else self.initial_no_cot_instructions
 
+        if self.use_init_context:
+            self.instruction = "Consider the Documents provided below\n" + self.instructions
+
 
     def _create_user_question(self, question_text: str):
         
