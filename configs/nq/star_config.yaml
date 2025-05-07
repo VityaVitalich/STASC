@@ -1,25 +1,23 @@
 
 # Model Configuration
-model_path: "VityaVitalich/Llama3.1-8b-instruct"
+model_path: "luezzka/Llama-3.2-1B-Instruct"
 cache_dir: "/home/data/v.moskvoretskii/cache/"
-gpu_memory_utilization: 0.8        # GPU memory utilization (0.0 to 1.0)
+gpu_memory_utilization: 0.5        # GPU memory utilization (0.0 to 1.0)
 enforce_eager: True                # Whether to enforce eager execution
-max_model_len: 12288                # Maximum model length
+max_model_len: 1024                # Maximum model length
 
 # Dataset Configuration
 data_path: "data/datasets/s_nq"
 id_col: "question_id"                        # Unique identifier column in the dataset
 question_col: "question_text"            # Column containing the question text
-use_context_col: "none"             # Column name for context or "none" if not used
-answer_col: "no_context_response"    # Column containing existing answers
-critic_col: "no_context_response_critic_2shot"  # Column with criticisms
+gold_col: "reference"
+
+num_star_iterations: 2
+run_name: "test"
 
 # Generation Configuration
-prompt_type: "verbalized_1s_topk"                # Options: generate, critic, revise, etc.
 few_shot_dir: "few_shots"            # Directory containing few-shot JSON files
-result_col: "verbalized_1s_top2_answer"         # New column name to store generation results
 number_output_seq: 1                 # Number of sequences to generate per prompt
-verbalized_top_k: 2                              # Top-K responses 1S Verbalized UE
 
 # Sampling Parameters
 temperature: 0.6                     # Sampling temperature
