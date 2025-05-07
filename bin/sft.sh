@@ -1,6 +1,10 @@
-export WANDB_API_KEY=''
-export ACC_CONFIG='configs/accelerate_config.yaml'
-export CONFIG_PATH='configs/sft.yaml'
+export WANDB_API_KEY=<>
+export ACC_CONFIG='configs/hotpot/accelerate_config.yaml'
+export CONFIG_PATH='configs/hotpot/sft.yaml'
+export FT_CONFIG='configs/hotpot/fine_tune.yaml'
 
-accelerate launch --config_file $ACC_CONFIG fine_tune.py --config_path $CONFIG_PATH
+python sft_baseline.py \
+    --config $CONFIG_PATH \
+    --ft_config $FT_CONFIG \
+    --accelerate_config_path $ACC_CONFIG
 
