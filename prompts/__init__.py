@@ -3,6 +3,7 @@ from .math_builder import ScoreMathPromptBuilder
 from .self_refine_builder import SelfRefineMathPromptBuilder, SelfRefineQAPromptBuilder
 from .baseline_builder import BaselineQAPromptBuilder, BaselineMathPromptBuilder
 from .cove_builder import CoVeQAPromptBuilder, CoVeMathPromptBuilder
+from .debate_builder import DebateQAPromptBuilder
 
 PROMPT_BUILDERS = {
     "qa": QAPromptBuilder,
@@ -12,7 +13,8 @@ PROMPT_BUILDERS = {
     "baseline_qa": BaselineQAPromptBuilder,
     "baseline_math": BaselineMathPromptBuilder,
     "cove_qa": CoVeQAPromptBuilder,
-    "cove_math": CoVeMathPromptBuilder
+    "cove_math": CoVeMathPromptBuilder,
+    "debate_qa": DebateQAPromptBuilder
 }
 
 def get_prompt_builder(task_type: str):

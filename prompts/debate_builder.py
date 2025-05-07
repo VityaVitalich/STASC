@@ -15,13 +15,10 @@ from prompts.prompt_schemas import compose_chat_messages
 
 
 class DebatePromptBuilder(BasePromptBuilder):
-
-
-
     def __init__(self, config):
-        
         self.config = config
         self.judge_prompt = self.finalize_instructions if config['finalize_judge'] else self.most_common_instructions 
+        self.question_col = config['question_col']
 
     def _create_user_question(self, question_text: str):
 
@@ -41,7 +38,6 @@ class DebatePromptBuilder(BasePromptBuilder):
         self,
         sample,
         tokenizer,
-        question_col="question",
         few_shot_prompts=None,
         tokenize=False,
         context_col='context',
@@ -50,7 +46,7 @@ class DebatePromptBuilder(BasePromptBuilder):
     ):
 
         # Build user question
-        question_text = sample.get(question_col, "")
+        question_text = sample[self.question_col]
         user_question = self._create_user_question(question_text)
 
         # Compose messages
@@ -72,7 +68,6 @@ class DebatePromptBuilder(BasePromptBuilder):
         self,
         sample,
         tokenizer,
-        question_col="question",
         initial_answer_col="inital_answer",
         few_shot_prompts=None,
         tokenize=False,
@@ -80,7 +75,7 @@ class DebatePromptBuilder(BasePromptBuilder):
         **kwargs
     ):
 
-        question_text = sample.get(question_col, "")
+        question_text = sample[self.question_col]
         user_question = self._create_user_question(question_text)
 
         initial_answers = sample.get(initial_answer_col, [])
@@ -114,26 +109,34 @@ class DebatePromptBuilder(BasePromptBuilder):
         sample,
         tokenizer,
         question_col="question",
-        initial_answer_col="inital_answer",
-        correction_col='correction'
+        initial_answer_col="initial_generation",
+        correction_col='correction',
         few_shot_prompts=None,
         tokenize=False,
         *args,
         **kwargs
     ):
 
-        question_text = sample.get(question_col, "")
+        question_text = sample[self.question_col]
         user_question = self._create_user_question(question_text)
 
-        initial_answers = sample.get(initial_answer_col, [])
+        initial_answers = sample.get(initial_answer_col, [])[0]
         all_corrections = self._concat_corrections(sample[correction_col])
 
         messages = [
-                {"role": "user", "content": (question_text + 
+                {"role": "user", "content": (
+                    question_text + 
                     initial_answers +
                     all_corrections +
-                    self.judge_prompt)},
+                    self.judge_prompt
+        )},
         ]
+
+        return tokenizer.apply_chat_template(
+            messages,
+            tokenize=tokenize,
+            add_generation_prompt=True
+        )
 
 
     def build_correction_messages_with_final_answer(
