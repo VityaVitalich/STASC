@@ -1,0 +1,5 @@
+use_init_context: true # if using RAG on initial answers
+num_documents: 10 # number of used documents from retrieved
+use_cot: True
+
+run_name_specification: ""
