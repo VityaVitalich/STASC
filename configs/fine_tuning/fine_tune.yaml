@@ -1,5 +1,5 @@
 model:
-  model_name_or_path: "VityaVitalich/Llama3-8b-instruct"
+  model_name_or_path: "<model_name>"
   tokenizer_name: null
   cache_dir: "/home/data/v.moskvoretskii/cache/"
   trust_remote_code: false
@@ -7,38 +7,38 @@ model:
   torch_dtype: "bfloat16"
 
 data:
-  dataset_name: "VityaVitalich/CQA"
-  block_size: 4096
+  dataset_name: "data/datasets/s_nq"
+  block_size: 1024
   validation_split_percentage: 0
   dataset_percentage: 100
   seed: 42
   streaming: false
   overwrite_cache: false
   preprocessing_num_workers: 4
-  load_from_disk: false
+  load_from_disk: true
 
 training:
-  output_dir: "/home/data/v.moskvoretskii/cache/CQA/"
-  learning_rate: 6.0e-6
+  output_dir: "./my-finetuned-llama-fsdp" # STaR overwrites it
+  learning_rate: 1.0e-6
   num_train_epochs: 2
   per_device_train_batch_size: 1
   per_device_eval_batch_size: 1
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 4
   gradient_checkpointing: false
   max_steps: -1
-  save_strategy: "epoch"
+  save_strategy: "no"
   save_steps: 1
   evaluation_strategy: "no"
   eval_steps: 1
-  weight_decay: 0.1
-  warmup_ratio: 0.03
-  lr_scheduler_type: "cosine"
-  logging_steps: 10
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  lr_scheduler_type: "linear"
+  logging_steps: 1
   do_train: true
   do_eval: false
   report_to: ["wandb"]
-  run_name: "cqa_6e-6_4bs_0.03warmup_2epoch"
-  project_name: "TRL"
+  run_name: "test_STaR"
+  project_name: "STaR"
 
 peft:
   use_lora: false

@@ -1,0 +1,13 @@
+use_init_context: false # if using RAG on initial answers
+use_corr_context: true # if using RAG on corrections
+num_documents: 10 # number of used documents from retrieved
+
+num_star_iterations: 0
+run_name_specification: ""
+
+initial_answer_with_new_model: True
+only_better_correction: True
+train_from_initial_model: True
+
+number_output_initial_generations: 1         
+number_output_corrections: 1

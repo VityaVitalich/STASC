@@ -1,0 +1,3 @@
+run_name_specification: "test_debate"
+finalize_judge: True
+number_output_corrections: 4

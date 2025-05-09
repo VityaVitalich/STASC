@@ -75,9 +75,9 @@ class QAPromptBuilder(BasePromptBuilder):
     def __init__(self, config):
         
         self.config = config
-        self.use_init_context = config['use_init_context']
-        self.use_corr_context = config['use_corr_context']
-        self.num_documents = config['num_documents']
+        self.use_init_context = config.get('use_init_context', False)
+        self.use_corr_context = config.get('use_corr_context', False)
+        self.num_documents = config.get('num_documents', 0)
         self.system_prompt = self.rag_system_prompt_init if self.use_init_context else self.system_prompt_init
         self.init_instructions = self.rag_initial_instructions if self.use_init_context else self.initial_instructions
         self.corr_instructions = self.rag_correction_instructions if self.use_corr_context else self.correction_instructions

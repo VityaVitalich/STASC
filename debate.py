@@ -12,9 +12,10 @@ from datasets import Dataset, DatasetDict
 from functools import partial
 from utils.generation_utils import generate_for_dataset, store_generation_results, load_config
 from prompts.prompt_schemas import load_few_shot_prompts
+from utils.utils import construct_run_name
+
 from utils.eval_utils import RewardEvaluator
 from vllm import LLM, SamplingParams
-from utils.utils import construct_run_name
 from utils.utils import KM
 
 from transformers import AutoTokenizer
@@ -74,7 +75,7 @@ def perform_generation(data, model, prompt_func, sampling_params, id_key, output
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the CoVE Algorithm")
+    parser = argparse.ArgumentParser(description="Run the Debate Algorithm")
     parser.add_argument("--model_config", type=str, required=True, help="Path to the YAML config file.")
     parser.add_argument("--data_config", type=str, required=True, help="Path to the YAML config file.")
     parser.add_argument("--algo_config", type=str, required=True, help="Path to the YAML config file.")
@@ -105,12 +106,11 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(config['model_path'], cache_dir=config['cache_dir'])
 
     # few shots
-    initial_generation_few_shot_prompts = load_few_shot_prompts(config['few_shot_dir'], 'cove_generation')
-    verification_plan_few_shot_prompts = load_few_shot_prompts(config['few_shot_dir'], 'cove_verification_plan')
-    verification_execution_few_shot_prompts = load_few_shot_prompts(config['few_shot_dir'], 'cove_verification_execution')
-    revision_few_shot_prompts = load_few_shot_prompts(config['few_shot_dir'], 'cove_revision')
+    initial_generation_few_shot_prompts = load_few_shot_prompts(config['few_shot_dir'], 'debate_generation')
+    correction_few_shot_prompts = load_few_shot_prompts(config['few_shot_dir'], 'debate_correction')
+    judge_few_shot_prompts = load_few_shot_prompts(config['few_shot_dir'], 'debate_judge')
 
-    task_type = f'cove_{config["task_type"]}'
+    task_type = f'debate_{config["task_type"]}'
     prompt_builder = get_prompt_builder(task_type)(config)
     reward_function = RewardEvaluator(config)
 
@@ -120,23 +120,18 @@ def main():
         tokenizer=tokenizer,
         few_shot_prompts=initial_generation_few_shot_prompts,
     )
-    verification_plan_prompt_func = partial(
-        prompt_builder.build_verification_plan_prompt,
-        tokenizer=tokenizer,
-        few_shot_prompts=verification_plan_few_shot_prompts,
-    )
-    verification_execution_prompt_func = partial(
-        prompt_builder.build_verification_execution_prompt,
-        tokenizer=tokenizer,
-        few_shot_prompts=verification_execution_few_shot_prompts,
-    )
-    revision_prompt_func = partial(
+    correction_prompt_func = partial(
         prompt_builder.build_correction_prompt,
         tokenizer=tokenizer,
-        few_shot_prompts=revision_few_shot_prompts,
+        few_shot_prompts=correction_few_shot_prompts,
+    )
+    judge_prompt_func = partial(
+        prompt_builder.build_judge_prompt,
+        tokenizer=tokenizer,
+        few_shot_prompts=judge_few_shot_prompts,
     )
 
-    save_dir = os.path.join(config['cache_dir'], 'cove')
+    save_dir = os.path.join(config['cache_dir'], 'debate')
     os.makedirs(save_dir, exist_ok=True)
     run_dir = os.path.join(save_dir, config['run_name'])
 
@@ -170,30 +165,6 @@ def main():
         id_key=config['id_col'],
         output_col=f"initial_generation"
     )
-    test_data = perform_generation(
-        data=test_data,
-        model=model,
-        prompt_func=verification_plan_prompt_func,
-        sampling_params=sampling_params,
-        id_key=config['id_col'],
-        output_col=f"verification_plan"
-    )
-    test_data = perform_generation(
-        data=test_data,
-        model=model,
-        prompt_func=verification_execution_prompt_func,
-        sampling_params=sampling_params,
-        id_key=config['id_col'],
-        output_col=f"verification_execution"
-    )
-    test_data = perform_generation(
-        data=test_data,
-        model=model,
-        prompt_func=revision_prompt_func,
-        sampling_params=sampling_params,
-        id_key=config['id_col'],
-        output_col=f"revision"
-    )
 
     init_acc = KM(
         test_data, 
@@ -202,17 +173,39 @@ def main():
         evaluator=reward_function
     )
     logger.info(f"Initial Accuracy {init_acc}")
+    
+    sampling_params.n = config['number_output_corrections']
+    test_data = perform_generation(
+        data=test_data,
+        model=model,
+        prompt_func=correction_prompt_func,
+        sampling_params=sampling_params,
+        id_key=config['id_col'],
+        output_col=f"correction"
+    )
+    sampling_params.n = 1
+    test_data = perform_generation(
+        data=test_data,
+        model=model,
+        prompt_func=judge_prompt_func,
+        sampling_params=sampling_params,
+        id_key=config['id_col'],
+        output_col=f"judgement"
+    )
+
+
+
 
     revised_acc = KM(
         test_data, 
-        target_col='revision', 
+        target_col='judgement', 
         gt_col=config['gold_col'],
         evaluator=reward_function
     )
-    logger.info(f"revision Accuracy {revised_acc}")
+    logger.info(f"Correction Judge Accuracy {revised_acc}")
 
     test_data.save_to_disk(run_dir)
-    logger.info("CoVE algorithm completed.")
+    logger.info("Debate algorithm completed.")
 
 if __name__ == "__main__":
     main()

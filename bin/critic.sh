@@ -1,8 +1,4 @@
-export WANDB_API_KEY=''
-# need for qwen models, having pos embedders < max model len
-# export VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
-
-export ALGO_CONFIG='configs/algo/stasc.yaml'
+export ALGO_CONFIG='configs/algo/critic.yaml'
 export MODEL_CONFIG='configs/model/qwen_2.5_1.5b.yaml'
 export DATA_CONFIG='configs/data_config/hotpot.yaml'
 
