@@ -14,4 +14,4 @@ evaluator_answer_marker: 'Final Answer:' # the key word to find answer after. tr
 # "Final Answer:" for qa
 
 # Generation Configuration
-few_shot_dir: "few_shots"            # Directory containing few-shot JSON files
+few_shot_dir: "none"            # Directory containing few-shot JSON files
