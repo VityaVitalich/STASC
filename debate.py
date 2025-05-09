@@ -12,6 +12,8 @@ from datasets import Dataset, DatasetDict
 from functools import partial
 from utils.generation_utils import generate_for_dataset, store_generation_results, load_config
 from prompts.prompt_schemas import load_few_shot_prompts
+from utils.utils import construct_run_name
+
 from utils.eval_utils import RewardEvaluator
 from vllm import LLM, SamplingParams
 from utils.utils import KM
@@ -73,15 +75,27 @@ def perform_generation(data, model, prompt_func, sampling_params, id_key, output
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the debate generation")
-    parser.add_argument("--config", type=str, required=True, help="Path to the YAML config file.")
+    parser = argparse.ArgumentParser(description="Run the Debate Algorithm")
+    parser.add_argument("--model_config", type=str, required=True, help="Path to the YAML config file.")
+    parser.add_argument("--data_config", type=str, required=True, help="Path to the YAML config file.")
+    parser.add_argument("--algo_config", type=str, required=True, help="Path to the YAML config file.")
     args = parser.parse_args()
 
     # Load configuration
-    config_path = Path(args.config)
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-    config = load_config(config_path)
+    algo_config = load_config(args.algo_config)
+    model_config = load_config(args.model_config)
+    data_config = load_config(args.data_config)
+
+    run_name = construct_run_name(
+    args.model_config,
+    args.data_config,
+    args.algo_config,
+    algo_config['run_name_specification']
+    )
+    algo_config['run_name'] = run_name
+
+    config = {**algo_config, **model_config, **data_config}
+
     logger = setup_logger(config['run_name'], log_file=f"logs/detailed/{config['run_name']}.log")
 
     # Load dataset

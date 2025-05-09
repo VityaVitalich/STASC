@@ -3,8 +3,16 @@ import sys
 sys.path.append('../')
 sys.path.append('./')
 
+import os
 from utils.eval_utils import has_answer
 
+
+def construct_run_name(model_config_path: str, data_config_path: str, algo_config_path: str, specification: str) -> str:
+    """Construct a run name from config file names (without extensions or paths)."""
+    model_name = os.path.splitext(os.path.basename(model_config_path))[0]
+    data_name = os.path.splitext(os.path.basename(data_config_path))[0]
+    algo_name = os.path.splitext(os.path.basename(algo_config_path))[0]
+    return f"{model_name}+{data_name}+{algo_name}+{specification}"
 
 def KM(ds, target_col, gt_col, evaluator):
     total_score = 0

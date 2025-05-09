@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 from utils.generation_utils import load_config
 from utils.logger import setup_logger, run_subprocess_in_real_time
+from utils.utils import construct_run_name
 import os
 import yaml
 import subprocess
@@ -88,17 +89,28 @@ def generate_initial_answers(config, temp_config_path, generation_model_path, ru
 
 def main():
     parser = argparse.ArgumentParser(description="Run the STaSC Algorithm")
-    parser.add_argument("--config", type=str, required=True, help="Path to the YAML config file.")
+    parser.add_argument("--model_config", type=str, required=True, help="Path to the YAML config file.")
+    parser.add_argument("--data_config", type=str, required=True, help="Path to the YAML config file.")
+    parser.add_argument("--algo_config", type=str, required=True, help="Path to the YAML config file.")
     parser.add_argument("--ft_config", type=str, required=True, help="Path to the Fine-Tuning YAML config file.")
     parser.add_argument("--accelerate_config_path", type=str, required=True, help="Path to the accelerate YAML config file.")
     args = parser.parse_args()
 
     # Load configuration
-    config_path = Path(args.config)
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-    config = load_config(config_path)
+    algo_config = load_config(args.algo_config)
+    model_config = load_config(args.model_config)
+    data_config = load_config(args.data_config)
     ft_config = load_config(args.ft_config)
+
+    run_name = construct_run_name(
+    args.model_config,
+    args.data_config,
+    args.algo_config,
+    algo_config['run_name_specification']
+    )
+    algo_config['run_name'] = run_name
+
+    config = {**algo_config, **model_config, **data_config}
 
     run_dir = ensure_directories(config)
     temp_config_path, temp_ft_config_path = save_temporary_configs(config, ft_config, config['run_name'])   
@@ -108,6 +120,7 @@ def main():
         log_all=f"logs/detailed/{config['run_name']}.log",
         log_info=f"logs/general/{config['run_name']}.log"
     )
+
     logger.info("\n" + yaml.dump(config, sort_keys=False, default_flow_style=False))
     logger.info("\n" + yaml.dump(ft_config, sort_keys=False, default_flow_style=False))
 
