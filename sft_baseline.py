@@ -1,12 +1,33 @@
+import sys
+import os
+
+
+sys.path.append('../')
+sys.path.append('./')
+
 import argparse
 from pathlib import Path
-from utils.generation_utils import load_config
+import datasets
+from datasets import Dataset, DatasetDict
+from functools import partial
+from utils.generation_utils import generate_for_dataset, store_generation_results, load_config
+from prompts.prompt_schemas import load_few_shot_prompts
 from utils.logger import setup_logger, run_subprocess_in_real_time
+from utils.eval_utils import RewardEvaluator
+from utils.utils import construct_run_name
+
+from vllm import LLM, SamplingParams
+from utils.utils import KM
+
+from transformers import AutoTokenizer
+from prompts import get_prompt_builder
 import os
 import yaml
 import subprocess
+import threading
+import torch
 import logging
-from functools import partial
+
 
 
 system_prompt_init = (
@@ -102,16 +123,8 @@ def add_sft_messages(sample, config):
         f"Question:\n{question_text}\n\n"
             "Strictly follow format Final Answer:"
     )
-
     gold = sample[config['gold_col']][0]
     answer = f"Final Answer: {gold}"
-
-    # Compose messages
-    messages = compose_chat_messages(
-        system_prompt=system_prompt_init,
-        instructions=initial_instructions,
-        user_question=user_question,
-    )
 
     messages = [
         {"role": "system", "content": system_prompt_init},
@@ -121,22 +134,47 @@ def add_sft_messages(sample, config):
     sample['messages'] = messages
     return sample
 
+def perform_generation(data, model, prompt_func, sampling_params, id_key, output_col):
+    """
+    Perform (rationale) generation or (rationalization) generation for the dataset.
+    Store the generation results in the dataset under 'output_col'.
+    """
+    generation_results = generate_for_dataset(
+        model=model,
+        data=data,
+        prompt_function=prompt_func,
+        sampling_params=sampling_params,
+        id_key=id_key
+    )
+    return store_generation_results(data, generation_results, result_col=output_col, id_col=id_key)
 
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run the SFT Baseline")
-    parser.add_argument("--config", type=str, required=True, help="Path to the YAML config file.")
+    parser.add_argument("--model_config", type=str, required=True, help="Path to the YAML config file.")
+    parser.add_argument("--data_config", type=str, required=True, help="Path to the YAML config file.")
+    parser.add_argument("--algo_config", type=str, required=True, help="Path to the YAML config file.")
     parser.add_argument("--ft_config", type=str, required=True, help="Path to the Fine-Tuning YAML config file.")
     parser.add_argument("--accelerate_config_path", type=str, required=True, help="Path to the accelerate YAML config file.")
     args = parser.parse_args()
 
     # Load configuration
-    config_path = Path(args.config)
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-    config = load_config(config_path)
+    # Load configuration
+    algo_config = load_config(args.algo_config)
+    model_config = load_config(args.model_config)
+    data_config = load_config(args.data_config)
     ft_config = load_config(args.ft_config)
+
+    run_name = construct_run_name(
+    args.model_config,
+    args.data_config,
+    args.algo_config,
+    algo_config['run_name_specification']
+    )
+    algo_config['run_name'] = run_name
+
+    config = {**algo_config, **model_config, **data_config}
 
     run_dir = ensure_directories(config)
     temp_config_path, temp_ft_config_path = save_temporary_configs(config, ft_config, config['run_name'])   
@@ -156,7 +194,9 @@ def main():
     train_data, test_data = dataset["train"], dataset["test"]
 
     train_data = train_data.map(partial(add_sft_messages, config=config))
-    train_data.save_to_disk(ft_dataset_path)
+    ft_data = DatasetDict({"train": train_data})
+    print(ft_data)
+    ft_data.save_to_disk(ft_dataset_path)
 
     ft_config['model']['model_name_or_path'] = config['model_path']
     ft_config["data"]["dataset_name"] = ft_dataset_path

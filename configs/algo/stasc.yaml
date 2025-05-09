@@ -1,4 +1,4 @@
-num_star_iterations: 5
+num_star_iterations: 1
 run_name_specification: ""
 
 initial_answer_with_new_model: True

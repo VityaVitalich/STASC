@@ -1,13 +1,13 @@
 # Model Configuration
 model_path: "Qwen/Qwen2.5-1.5B-Instruct" #'microsoft/Phi-3-mini-4k-instruct' # "Qwen/Qwen2.5-1.5B-Instruct" # "Qwen/Qwen2.5-Math-1.5B-Instruct"
 cache_dir: "/home/data/v.moskvoretskii/cache/"
-gpu_memory_utilization: 0.4        # GPU memory utilization (0.0 to 1.0)
+gpu_memory_utilization: 0.95        # GPU memory utilization (0.0 to 1.0)
 enforce_eager: False               # Whether to enforce eager execution
-max_model_len: 2048                # Maximum model length
+max_model_len: 4096                # Maximum model length
 random_seed: 42
 
 
 # Sampling Parameters
 temperature: 0.7                    # Sampling temperature
 top_p: 0.8                          # Top-p (nucleus) sampling
-max_tokens: 1024                      # Maximum number of tokens to generate
+max_tokens: 2048                      # Maximum number of tokens to generate
