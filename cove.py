@@ -220,7 +220,7 @@ def main():
         correction_col=f'revision',
         reward_function=reward_function
     )
-    print(
+    logger.info(
         f"[INFO] Test Correction Statistics:\n"
         f"[INFO]       - Correct → Incorrect: {stats_test['correct_to_incorrect']:.2f}%\n"
         f"[INFO]       - Correct → Correct: {stats_test['correct_to_correct']:.2f}%\n"
