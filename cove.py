@@ -11,6 +11,7 @@ import datasets
 from datasets import Dataset, DatasetDict
 from functools import partial
 from utils.generation_utils import generate_for_dataset, store_generation_results, load_config
+from generator_src.stasc_vllm_generation import collect_correction_stats
 from prompts.prompt_schemas import load_few_shot_prompts
 from utils.eval_utils import RewardEvaluator
 from vllm import LLM, SamplingParams
@@ -201,7 +202,7 @@ def main():
         gt_col=config['gold_col'],
         evaluator=reward_function
     )
-    logger.info(f"Initial Accuracy {init_acc}")
+    logger.info(f"[INFO] Initial Accuracy {init_acc}")
 
     revised_acc = KM(
         test_data, 
@@ -209,7 +210,22 @@ def main():
         gt_col=config['gold_col'],
         evaluator=reward_function
     )
-    logger.info(f"revision Accuracy {revised_acc}")
+    logger.info(f"[INFO] revision Accuracy {revised_acc}")
+
+    stats_test = collect_correction_stats(
+        dataset=test_data,
+        question_col=config['question_col'],
+        reference_col=config['gold_col'],
+        inital_answer_col='initial_generation',
+        correction_col=f'revision',
+        reward_function=reward_function
+    )
+    print(
+        f"[INFO] Test Correction Statistics:\n"
+        f"[INFO]       - Correct → Incorrect: {stats_test['correct_to_incorrect']:.2f}%\n"
+        f"[INFO]       - Correct → Correct: {stats_test['correct_to_correct']:.2f}%\n"
+        f"[INFO]       - Incorrect → Correct: {stats_test['incorrect_to_correct']:.2f}%"
+    )
 
     test_data.save_to_disk(run_dir)
     logger.info("CoVE algorithm completed.")

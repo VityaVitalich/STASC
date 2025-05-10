@@ -158,7 +158,7 @@ def main():
         gt_col=config['gold_col'],
         evaluator=reward_function
         )
-    logger.info(f"Initial Accuracy {acc}")
+    logger.info(f"[INFO] Initial Accuracy {acc}")
 
     test_data.save_to_disk(run_dir)
     logger.info("Baseline algorithm completed.")

@@ -12,6 +12,8 @@ from datasets import Dataset, DatasetDict
 from functools import partial
 from utils.generation_utils import generate_for_dataset, store_generation_results, load_config
 from prompts.prompt_schemas import load_few_shot_prompts
+from generator_src.stasc_vllm_generation import collect_correction_stats
+
 from utils.utils import construct_run_name
 
 from utils.eval_utils import RewardEvaluator
@@ -172,7 +174,7 @@ def main():
         gt_col=config['gold_col'],
         evaluator=reward_function
     )
-    logger.info(f"Initial Accuracy {init_acc}")
+    logger.info(f"[INFO] Initial Accuracy {init_acc}")
     
     sampling_params.n = config['number_output_corrections']
     test_data = perform_generation(
@@ -194,15 +196,28 @@ def main():
     )
 
 
-
-
     revised_acc = KM(
         test_data, 
         target_col='judgement', 
         gt_col=config['gold_col'],
         evaluator=reward_function
     )
-    logger.info(f"Correction Judge Accuracy {revised_acc}")
+    logger.info(f"[INFO] Correction Judge Accuracy {revised_acc}")
+
+    stats_test = collect_correction_stats(
+        dataset=test_data,
+        question_col=config['question_col'],
+        reference_col=config['gold_col'],
+        inital_answer_col='initial_generation',
+        correction_col=f'judgement',
+        reward_function=reward_function
+    )
+    print(
+        f"[INFO] Test Correction Statistics:\n"
+        f"[INFO]       - Correct → Incorrect: {stats_test['correct_to_incorrect']:.2f}%\n"
+        f"[INFO]       - Correct → Correct: {stats_test['correct_to_correct']:.2f}%\n"
+        f"[INFO]       - Incorrect → Correct: {stats_test['incorrect_to_correct']:.2f}%"
+    )
 
     test_data.save_to_disk(run_dir)
     logger.info("Debate algorithm completed.")
