@@ -95,7 +95,7 @@ def main():
 
     config = {**algo_config, **model_config, **data_config}
 
-    logger = setup_logger(config['run_name'], log_file=f"logs/detailed/{config['run_name']}.log")
+    logger = setup_logger(config['run_name'], log_file=f"logs/general/{config['run_name']}.log")
 
     # Load dataset
     dataset = datasets.load_from_disk(str(config['data_path']))
@@ -158,7 +158,7 @@ def main():
         gt_col=config['gold_col'],
         evaluator=reward_function
         )
-    logger.info(f"Initial Accuracy {acc}")
+    logger.info(f"[INFO] Initial Accuracy {acc}")
 
     test_data.save_to_disk(run_dir)
     logger.info("Baseline algorithm completed.")
