@@ -19,9 +19,9 @@ class BaselinePromptBuilder(BasePromptBuilder):
         self.config = config
         self.question_col = config.get("question_col", "question")
         self.context_col = config.get('context_col', 'context')
-        self.use_cot = config['use_cot']
-        self.use_init_context = config['use_init_context']
-        self.num_documents = config['num_documents']
+        self.use_cot = config.get('use_cot', True)
+        self.use_init_context = config.get('use_init_context', False)
+        self.num_documents = config.get('num_documents', 0)
 
         self.system_prompt = self.initial_cot_system_prompt if self.use_cot else self.initial_no_cot_system_prompt
         self.instructions = self.initial_cot_instructions if self.use_cot else self.initial_no_cot_instructions
