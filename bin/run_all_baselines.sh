@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # ---- Setup ----
 export WANDB_API_KEY=''
@@ -8,22 +8,6 @@ MODEL_CONFIG='configs/model/qwen_2.5_1.5b.yaml'
 DATA_CONFIG='configs/data_config/hotpot.yaml'
 FT_CONFIG='configs/fine_tuning/fine_tune.yaml'
 ACCELERATE_CONFIG='configs/fine_tuning/accelerate_config.yaml'
-
-# ---- Run all STASC variants ----
-SCRIPT_NAME="stasc.py"
-STASC_CONFIG_DIR="configs/algo/stasc_versions"
-
-echo "=== Running STASC variants ==="
-for ALGO_CONFIG in "$STASC_CONFIG_DIR"/stasc_*.yaml; do
-    echo "[RUN] $SCRIPT_NAME with $ALGO_CONFIG"
-
-    python $SCRIPT_NAME \
-        --data_config $DATA_CONFIG \
-        --model_config $MODEL_CONFIG \
-        --algo_config $ALGO_CONFIG \
-        --ft_config $FT_CONFIG \
-        --accelerate_config_path $ACCELERATE_CONFIG
-done
 
 # ---- List of algorithms to run ----
 ALGO_LIST="critic self_refine baseline_rag baseline_no_cot baseline_cot debate_finalize debate_common cove sft"
