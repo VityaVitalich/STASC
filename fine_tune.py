@@ -3,6 +3,9 @@ import sys
 sys.path.append('../')
 sys.path.append('./')
 
+import torch._dynamo
+torch._dynamo.config.suppress_errors = True
+
 import argparse
 import yaml
 import torch

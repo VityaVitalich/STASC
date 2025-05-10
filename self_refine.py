@@ -5,6 +5,10 @@ import os
 sys.path.append('../')
 sys.path.append('./')
 
+import torch._dynamo
+torch._dynamo.config.suppress_errors = True
+
+
 import argparse
 from pathlib import Path
 import datasets
