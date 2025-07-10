@@ -117,7 +117,7 @@ def build_training_args(training_cfg: dict) -> TrainingArguments:
         max_steps=training_cfg.get("max_steps", -1),
         save_strategy=training_cfg.get("save_strategy", "steps"),
         save_steps=training_cfg.get("save_steps", 500),
-        evaluation_strategy=training_cfg.get("evaluation_strategy", "steps"),
+        eval_strategy=training_cfg.get("evaluation_strategy", "steps"),
         eval_steps=training_cfg.get("eval_steps", 500),
         weight_decay=training_cfg.get("weight_decay", 0.01),
         warmup_ratio=training_cfg.get("warmup_ratio", 0.0),
