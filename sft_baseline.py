@@ -197,7 +197,6 @@ def main():
 
     train_data = train_data.map(partial(add_sft_messages, config=config))
     ft_data = DatasetDict({"train": train_data})
-    print(ft_data)
     ft_data.save_to_disk(ft_dataset_path)
 
     ft_config['model']['model_name_or_path'] = config['model_path']
