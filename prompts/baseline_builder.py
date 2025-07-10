@@ -79,7 +79,8 @@ class BaselinePromptBuilder(BasePromptBuilder):
         return tokenizer.apply_chat_template(
             messages,
             tokenize=tokenize,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            enable_thinking=False
         )
 
     def build_correction_prompt(self, *args, **kwargs) -> Any:

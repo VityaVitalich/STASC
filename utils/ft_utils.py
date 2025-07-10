@@ -227,7 +227,9 @@ def encode_with_messages_format_chat_template(example, tokenizer, architecture):
         tokenize=True,
         add_generation_prompt=False,
         truncate=True,
-        return_tensors='pt'
+        return_tensors='pt',
+        enable_thinking=False
+
     ).squeeze(0)
 
     if 'qwen' in architecture.lower():

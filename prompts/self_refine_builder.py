@@ -117,7 +117,8 @@ class SelfRefinePromptBuilder(BasePromptBuilder):
         return tokenizer.apply_chat_template(
             messages,
             tokenize=tokenize,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            enable_thinking=False
         )
 
     def build_feedback_prompt(self, sample: dict, tokenizer: Any, few_shot_prompts: List[dict] = None, tokenize: bool = False, *args, **kwargs) -> Any:
@@ -134,7 +135,8 @@ class SelfRefinePromptBuilder(BasePromptBuilder):
         return tokenizer.apply_chat_template(
             messages,
             tokenize=tokenize,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            enable_thinking=False
         )
 
     def build_correction_prompt(self, sample: dict, tokenizer: Any, few_shot_prompts: List[dict] = None, tokenize: bool = False, *args, **kwargs) -> Any:
@@ -151,7 +153,8 @@ class SelfRefinePromptBuilder(BasePromptBuilder):
         return tokenizer.apply_chat_template(
             messages,
             tokenize=tokenize,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            enable_thinking=False
         )
     def build_correction_messages_with_final_answer(self, *args, **kwargs):
         raise NotImplementedError

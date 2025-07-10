@@ -48,7 +48,8 @@ class CoVePromptBuilder(BasePromptBuilder):
         return tokenizer.apply_chat_template(
             messages,
             tokenize=tokenize,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            enable_thinking=False
         )
 
     def build_verification_plan_prompt(self, sample: dict, tokenizer: Any, initial_answer_col="initial_generation",
@@ -76,7 +77,8 @@ class CoVePromptBuilder(BasePromptBuilder):
         final_prompt = tokenizer.apply_chat_template(
                 messages,
                 tokenize=tokenize,
-                add_generation_prompt=True
+                add_generation_prompt=True,
+                enable_thinking=False
         )
         return final_prompt
 
@@ -101,7 +103,8 @@ class CoVePromptBuilder(BasePromptBuilder):
         final_prompt = tokenizer.apply_chat_template(
                 messages,
                 tokenize=tokenize,
-                add_generation_prompt=True
+                add_generation_prompt=True,
+                enable_thinking=False
         )
         return final_prompt
 
@@ -130,7 +133,8 @@ class CoVePromptBuilder(BasePromptBuilder):
         final_prompt = tokenizer.apply_chat_template(
                 messages,
                 tokenize=tokenize,
-                add_generation_prompt=True
+                add_generation_prompt=True,
+                enable_thinking=False
         )
         return final_prompt
 

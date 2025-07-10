@@ -61,7 +61,8 @@ class DebatePromptBuilder(BasePromptBuilder):
         return tokenizer.apply_chat_template(
             messages,
             tokenize=tokenize,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            enable_thinking=False
         )
 
     def build_correction_prompt(
@@ -98,7 +99,8 @@ class DebatePromptBuilder(BasePromptBuilder):
             final_prompt = tokenizer.apply_chat_template(
                 messages,
                 tokenize=tokenize,
-                add_generation_prompt=True
+                add_generation_prompt=True,
+                enable_thinking=False
             )
             all_correction_prompts.append(final_prompt)
 
@@ -135,7 +137,8 @@ class DebatePromptBuilder(BasePromptBuilder):
         return tokenizer.apply_chat_template(
             messages,
             tokenize=tokenize,
-            add_generation_prompt=True
+            add_generation_prompt=True,
+            enable_thinking=False
         )
 
 
