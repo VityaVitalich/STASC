@@ -332,7 +332,7 @@ def main():
     train_data, test_data = dataset["train"], dataset["test"]
 
     tokenizer = AutoTokenizer.from_pretrained(config["model_path"], cache_dir=config["cache_dir"])
-    prompt_builder = get_prompt_builder(config["task_type"])
+    prompt_builder = get_prompt_builder(config["task_type"])(config)
     reward_function = RewardEvaluator(config)
 
     initial_generation_few_shot = load_few_shot_prompts(
