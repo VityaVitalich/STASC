@@ -1,6 +1,7 @@
 import os
-import yaml
 from itertools import product
+
+import yaml
 
 # Paths
 base_config_path = "algo/stasc.yaml"
@@ -10,14 +11,10 @@ output_dir = "algo/stasc_versions"
 os.makedirs(output_dir, exist_ok=True)
 
 # Mapping from char to boolean
-char_to_bool = {'t': True, 'f': False}
+char_to_bool = {"t": True, "f": False}
 
 # Boolean flag names in config
-flag_keys = [
-    "initial_answer_with_new_model",
-    "only_better_correction",
-    "train_from_initial_model"
-]
+flag_keys = ["initial_answer_with_new_model", "only_better_correction", "train_from_initial_model"]
 
 # Load base config
 with open(base_config_path, "r") as f:
@@ -26,7 +23,7 @@ with open(base_config_path, "r") as f:
 # Iterate over all 8 binary combinations
 for bits in product("tf", repeat=3):
     config = base_config.copy()
-    suffix = ''.join(bits)
+    suffix = "".join(bits)
 
     # Apply booleans
     for key, bit in zip(flag_keys, bits):

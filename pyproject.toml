@@ -1,0 +1,90 @@
+[project]
+name = "stasc"
+version = "0.0.1"
+description = "STASC"
+readme = "README.md"
+requires-python = ">= 3.12.4"
+authors = [{ name = ".", email = "jan.strich@uni-hamburg.de" }]
+dependencies = [
+    "accelerate==1.2.1",
+    "bitsandbytes==0.45.0",
+    "huggingface-hub==0.24.1",
+    "peft==0.5.0",
+    "protobuf==4.25.2",
+    "tiktoken==0.7.0",
+    "tokenizers==0.21.0",
+    "torch==2.5.1",
+    "tqdm==4.67.1",
+    "transformers==4.47.1",
+    "vllm==0.6.6.post1",
+    "wandb==0.16.2",
+    "pylatexenc",
+    "word2number",
+    "datasets>=4.0.0",
+    "PyYAML>=6.0.2",
+    "types-PyYAML>=6.0.12",
+]
+
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["*"]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 100
+lint.select = ["E", "F", "W", "I", "D", "A", "N", "B", "SIM", "C4", "TID"]
+lint.ignore = [
+    "E741", # Ambiguous variable name
+    "D213", # Multi-line docstring summary should start at the second line
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in __init__
+    "D203", # 1 blank line required before class docstring
+    "D401", # First line should be in imperative mood; try rephrasing
+    "D407", # Missing dashed underline after section
+    "D406", # Section name should end with a newline
+    "D106", # Missing docstring in public nested class
+    "B006", # Do not use mutable data structures for argument defaults
+    "B008", # Do not perform function calls in argument defaults
+    "B905", # `zip()` without an explicit `strict=` parameter
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public method
+    "D205", # 1 blank line required between summary line and description
+
+]
+lint.exclude = ["*.ipynb"] # TODO: do we really want this?
+
+[tool.ruff.format]
+exclude = ["*.ipynb"]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["D", "E402"]
+"__init__.py" = ["D"]
+"src/notebooks/*.py" = [
+    "D",      # Make docstrings entirely optional
+    "E402",   # Module level import not at top of file
+    "SIM115", # Use context handler for opening files
+    "I",      # Allow unordered imports
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.jupytext]
+# Always pair ipynb notebooks to py:percent files
+
+
+[tool.ty.rules]
+unused-ignore-comment = "warn"
+redundant-cast = "ignore"
+possibly-unbound-attribute = "ignore"
+possibly-unbound-import = "ignore"
