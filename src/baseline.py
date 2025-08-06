@@ -98,7 +98,7 @@ def main():
     generation_few_shot_prompts = load_few_shot_prompts(config["few_shot_dir"], "generation")
 
     task_type = f"baseline_{config['task_type']}"
-    prompt_builder = get_prompt_builder(task_type)
+    prompt_builder = get_prompt_builder(task_type)(config)
     reward_function = RewardEvaluator(config)
 
     initial_generation_prompt_func = partial(
