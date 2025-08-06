@@ -404,7 +404,7 @@ def main():
         config["few_shot_dir"], "self_refine_refinement"
     )
 
-    prompt_builder = SelfRefinePromptBuilder(config)
+    prompt_builder = SelfRefineQAPromptBuilder(config)
     reward_function = RewardEvaluator(config)
 
     # Prompt functions
