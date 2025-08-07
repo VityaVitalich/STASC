@@ -1,0 +1,17 @@
+use_cot: false
+run_name_specification: ""
+use_init_context: false
+num_documents: 0
+use_corr_context: false
+num_star_iterations: 0
+
+initial_answer_with_new_model: true
+only_better_correction: true
+train_from_initial_model: true
+
+number_output_initial_generations: 1
+number_output_corrections: 1
+
+finalize_judgement: false
+
+num_refine_iterations: 5

@@ -1,5 +1,6 @@
 from typing import Any, List
 
+from configs.config import Config
 from prompts.base import BasePromptBuilder
 from prompts.prompt_schemas import compose_chat_messages
 
@@ -15,16 +16,16 @@ class BaselinePromptBuilder(BasePromptBuilder):
     initial_cot_instructions: str = ""
     initial_no_cot_instructions: str = ""
 
-    def __init__(self, config: dict):
+    def __init__(self, config: Config) -> None:
         """:param config: A dictionary that can include:
         - question_col: The key for the user's question.
         """
         self.config = config
-        self.question_col = config.get("question_col", "question")
-        self.context_col = config.get("context_col", "context")
-        self.use_cot = config.get("use_cot", True)
-        self.use_init_context = config.get("use_init_context", False)
-        self.num_documents = config.get("num_documents", 0)
+        self.question_col = config.dataset.question_col
+        self.context_col = config.dataset.context_col
+        self.use_cot = config.algo.use_cot
+        self.use_init_context = config.algo.use_init_context
+        self.num_documents = config.algo.num_documents
 
         self.system_prompt = (
             self.initial_cot_system_prompt if self.use_cot else self.initial_no_cot_system_prompt

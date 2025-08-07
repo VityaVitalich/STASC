@@ -1,0 +1,7 @@
+defaults:
+  - _default
+  - _self_
+
+name: baseline_cot
+use_cot: True
+run_name_specification: ""

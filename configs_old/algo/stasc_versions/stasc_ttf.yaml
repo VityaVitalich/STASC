@@ -1,0 +1,7 @@
+num_star_iterations: 5
+run_name_specification: ''
+initial_answer_with_new_model: true
+only_better_correction: true
+train_from_initial_model: false
+number_output_initial_generations: 1
+number_output_corrections: 3

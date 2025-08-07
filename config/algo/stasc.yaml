@@ -1,0 +1,14 @@
+defaults:
+  - _default
+  - _self_
+
+name: stasc
+num_star_iterations: 1
+run_name_specification: ""
+
+initial_answer_with_new_model: True
+only_better_correction: True
+train_from_initial_model: True
+
+number_output_initial_generations: 1
+number_output_corrections: 3
