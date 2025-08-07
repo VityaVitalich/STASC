@@ -1,0 +1,7 @@
+defaults:
+  - _default
+  - _self_
+
+name: self_refine
+num_refine_iterations: 5
+run_name_specification: ""

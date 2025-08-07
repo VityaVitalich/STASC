@@ -1,0 +1,14 @@
+# conf/config.yaml
+hydra:
+  run:
+    dir: outputs/${now:%y-%m-%d_%H:%M}_${model.model_name_short}
+
+defaults:
+  - model: qwen_2.5_1.5b
+  - dataset: hotpot
+  - algo: baseline_cot
+  - _self_
+
+base_url: http://localhost:${vllm_port}/v1/
+vllm_port: 18123
+run_name: ${model.model_name_short}_${dataset.name}_${algo.name}

@@ -226,7 +226,7 @@ def main():
 
     # few shots
 
-    prompt_builder = get_prompt_builder(config["task_type"])(config)
+    prompt_builder = get_prompt_builder(config["task_type"])(config)  # type: ignore
     reward_function = RewardEvaluator(config)
 
     initial_generation_prompt_func = partial(

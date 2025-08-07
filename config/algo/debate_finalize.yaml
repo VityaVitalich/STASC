@@ -1,0 +1,8 @@
+defaults:
+  - _default
+  - _self_
+
+name: debate_finalize
+run_name_specification: "test_debate"
+finalize_judge: True
+number_output_corrections: 4

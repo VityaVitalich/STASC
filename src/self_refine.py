@@ -9,7 +9,7 @@ from transformers import AutoTokenizer  # pyright: ignore[reportPrivateImportUsa
 from vllm import LLM, SamplingParams
 
 from prompts.prompt_schemas import load_few_shot_prompts
-from prompts.self_refine_builder import SelfRefinePromptBuilder
+from prompts.self_refine_builder import SelfRefineQAPromptBuilder
 from utils.eval_utils import RewardEvaluator
 from utils.generation_utils import generate_for_dataset, load_config, store_generation_results
 from utils.utils import KM, construct_run_name

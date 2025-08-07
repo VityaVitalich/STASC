@@ -1,6 +1,7 @@
 import warnings
 from typing import List
 
+from configs.config import Config
 from utils.math_grader import grade_answer
 from utils.qa_grader import EM_compute, F1_compute, has_answer
 from utils.qwen_math_parser import extract_answer
@@ -16,9 +17,10 @@ reward_functions = {
 def split_rationale_and_final_answer(generated_text: str, answer_marker: str = "Final Answer:"):
     """Splits a STaR-style generation into two parts:
       1) The rationale (everything after 'Step-by-step reasoning:' until the answer marker)
-      2) The final answer (everything after the answer marker)
+      2) The final answer (everything after the answer marker).
 
-    The search for the answer marker (and the rationale marker) is performed in a case-insensitive manner.
+    The search for the answer marker (and the rationale marker) is performed in a case-insensitive
+    manner.
     """
     rationale_marker = "Step-by-step reasoning:"
     text = generated_text.replace("\r", "")
@@ -50,7 +52,7 @@ def split_rationale_and_final_answer(generated_text: str, answer_marker: str = "
 
 
 class RewardEvaluator:
-    def __init__(self, config):
+    def __init__(self, config: Config):
         """mode: A string specifying the evaluation mode.
               'default' uses has_answer as-is.
               'final' extracts the final answer from the generated text.
@@ -58,17 +60,20 @@ class RewardEvaluator:
         config: Additional configuration parameters.
         """
         self.config = config
-        self.mode = self.config["evaluator_mode"]
-        self.reward_function = reward_functions[self.config["evaluator_function"]]
+        self.mode = config.dataset.evaluator_mode
+        self.reward_function = reward_functions[config.dataset.evaluator_function]
         self.extractor = (
-            split_rationale_and_final_answer if self.config["task_type"] == "qa" else extract_answer
+            split_rationale_and_final_answer
+            if self.config.dataset.task_type == "qa"
+            else extract_answer
         )
 
-        if (self.config["evaluator_function"] == "math_acc") and (
-            self.config["evaluator_mode"] != "final"
+        if (self.config.dataset.evaluator_function == "math_acc") and (
+            self.config.dataset.evaluator_mode != "final"
         ):
             warnings.warn(
-                "Reward Function is `Math Acc` but Evaluator Mode is not `Final`. Setting to `Final`"
+                "Reward Function is `Math Acc` but Evaluator is not `Final`. Setting to `Final`",
+                stacklevel=2,
             )
             self.mode = "final"
 
@@ -77,7 +82,8 @@ class RewardEvaluator:
             return self.reward_function(ground_truth, model_answer)
         elif self.mode == "final":
             final_ans = self.extractor(
-                generated_text=model_answer, answer_marker=self.config["evaluator_answer_marker"]
+                generated_text=model_answer,
+                answer_marker=self.config.dataset.evaluator_answer_marker,
             )
             return self.reward_function(ground_truth, final_ans)
         else:
