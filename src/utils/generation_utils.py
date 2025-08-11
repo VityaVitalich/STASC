@@ -1,5 +1,5 @@
-from encourage.llm import ChatInferenceRunner, Response, ResponseWrapper
-from tqdm import tqdm
+from encourage.llm import BatchInferenceRunner
+from encourage.prompts import PromptCollection
 
 
 def clean_completion_text(text: str, marker: str = "assistant:") -> str:
@@ -123,19 +123,28 @@ def generate_for_dataset(data, prompt_function, sampling_params, id_key="id"):
     # 2) Flatten prompts
     # all_prompts = flatten_prompts(grouped_data)
     prompts = [prompt["prompts"] for prompt in grouped_data]
-    # prompt_collection = PromptCollection.from_prompts(prompts)
+    prompt_collection = PromptCollection.from_prompts(prompts)
 
-    runner = ChatInferenceRunner(
+    # runner = ChatInferenceRunner(
+    #     sampling_parameters=sampling_params,
+    #     model_name="Qwen/Qwen2.5-1.5B-Instruct",
+    #     base_url="http://localhost:8005/v1/",
+    # )
+    # responses: list[Response] = []
+    # for prompt in tqdm(prompts):
+    #     response: ResponseWrapper = runner.run(prompt)  # type: ignore[reportArgumentType]
+    #     responses.append(response.response_data[0])
+    # return ResponseWrapper(responses=responses)
+    runner = BatchInferenceRunner(
         sampling_parameters=sampling_params,
         model_name="Qwen/Qwen2.5-1.5B-Instruct",
         base_url="http://localhost:8005/v1/",
     )
-    responses: list[Response] = []
-    for prompt in tqdm(prompts):
-        response: ResponseWrapper = runner.run(prompt)  # type: ignore[reportArgumentType]
-        responses.append(response.response_data[0])
-    return ResponseWrapper(responses=responses)
-    # responses = runner.run(prompt_collection=prompt_collection)
+    result = runner.run(prompt_collection=prompt_collection)
+    for response in result.response_data:
+        response.response = response.response.strip().lower()
+
+    return result
     # 3) Generate in one batch call
     generation_results = ""
 

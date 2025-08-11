@@ -85,7 +85,7 @@ class BaselinePromptBuilder(BasePromptBuilder):
 
         conversation = Conversation(self.system_prompt, user_question)
         conversation.clear_conversation()
-        conversation.add_message("system", self.instructions)
+        conversation.add_message("user", self.instructions)
         if few_shot_prompts:
             for prompt in few_shot_prompts:
                 conversation.add_message("user", prompt["prompts"][0])

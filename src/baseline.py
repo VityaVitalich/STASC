@@ -9,11 +9,11 @@ import hydra
 import litellm._logging
 import mlflow
 import mlflow.data.pandas_dataset
-import mlflow.openai as mlflow_openai
 import pandas as pd
 from dotenv import load_dotenv
-from encourage.llm import ResponseWrapper, SamplingParams
+from encourage.llm import ResponseWrapper
 from encourage.utils import FileManager
+from vllm import SamplingParams
 
 from configs.config import Config
 from prompts.enum import get_prompt_builder
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 def main(cfg: Config):
     """Main function to run the baseline algorithm."""
     litellm._logging._disable_debugging()
-    mlflow_openai.autolog()
+    # mlflow_openai.autolog()
     logger.info(f"[INFO] Running baseline algorithm with config: {cfg}")
 
     # Mlflow setup
@@ -45,7 +45,7 @@ def main(cfg: Config):
     mlflow.log_params(flatten_dict(cfg))
 
     # Load dataset
-    test_data = datasets.load_dataset(cfg.dataset.data_path, split="test[:10]")
+    test_data = datasets.load_dataset(cfg.dataset.data_path, split="test")
     mlflow.log_input(
         mlflow.data.pandas_dataset.from_pandas(test_data.to_pandas(), name=cfg.dataset.data_path),  # type: ignore[reportArgumentType]
         context="inference",
