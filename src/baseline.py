@@ -45,7 +45,7 @@ def main(cfg: Config):
     mlflow.log_params(flatten_dict(cfg))
 
     # Load dataset
-    test_data = datasets.load_dataset(cfg.dataset.data_path, split="test")
+    test_data = datasets.load_dataset(cfg.dataset.data_path, split="test[:10]")
     mlflow.log_input(
         mlflow.data.pandas_dataset.from_pandas(test_data.to_pandas(), name=cfg.dataset.data_path),  # type: ignore[reportArgumentType]
         context="inference",
