@@ -1,3 +1,7 @@
+from encourage.llm import BatchInferenceRunner
+from encourage.prompts import PromptCollection
+
+
 def clean_completion_text(text: str, marker: str = "assistant:") -> str:
     r"""Keeps only the content after the first occurrence of `marker` (case-insensitive).
     If the marker is not found, returns the original text stripped.
@@ -42,7 +46,8 @@ def gather_item_prompts(data, prompt_function, id_key="question_idx"):
         group_id = sample.get(id_key, idx)
 
         # The prompt function can return a single string or multiple strings
-        prompts = prompt_function(sample)
+        prompts = prompt_function(sample, group_id)
+
         if isinstance(prompts, str):
             prompts = [prompts]
 
@@ -88,7 +93,7 @@ def unflatten_results(grouped_data, generation_results):
     return grouped_data
 
 
-def generate_for_dataset(model, data, prompt_function, sampling_params, id_key="id"):
+def generate_for_dataset(data, prompt_function, sampling_params, id_key="id"):
     """High-level function that:
       1) Gathers prompts from each item in `data`.
       2) Flattens all prompts into a single list for batched generation.
@@ -116,15 +121,23 @@ def generate_for_dataset(model, data, prompt_function, sampling_params, id_key="
     grouped_data = gather_item_prompts(data, prompt_function, id_key=id_key)
 
     # 2) Flatten prompts
-    all_prompts = flatten_prompts(grouped_data)
+    # all_prompts = flatten_prompts(grouped_data)
+    prompts = [prompt["prompts"] for prompt in grouped_data]
+    prompt_collection = PromptCollection.from_prompts(prompts)
 
+    runner = BatchInferenceRunner(
+        sampling_parameters=sampling_params,
+        model_name="Qwen/Qwen2.5-1.5B-Instruct",
+        base_url="http://localhost:8005/v1/",
+    )
+    responses = runner.run(prompt_collection=prompt_collection)
     # 3) Generate in one batch call
-    generation_results = model.generate(all_prompts, sampling_params, use_tqdm=True)
+    generation_results = ""
 
     # 4) Unflatten the generation results back
-    final_data = unflatten_results(grouped_data, generation_results)
+    # final_data = unflatten_results(grouped_data, generation_results)
 
-    return final_data
+    return responses
 
 
 def store_generation_results(dataset_split, results, result_col="model_outputs", id_col="id"):

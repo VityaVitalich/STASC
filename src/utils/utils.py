@@ -1,4 +1,7 @@
 import os
+from typing import Any
+
+from encourage.llm import ResponseWrapper
 
 
 def construct_run_name(
@@ -11,7 +14,7 @@ def construct_run_name(
     return f"{model_name}+{data_name}+{algo_name}+{specification}"
 
 
-def KM(ds, target_col, gt_col, evaluator):
+def KM_old(ds, target_col, gt_col, evaluator):
     total_score = 0
     total_count = 0
     for sample in ds:
@@ -29,6 +32,32 @@ def KM(ds, target_col, gt_col, evaluator):
             scores = [evaluator(ground_truth=corr_ans, model_answer=ans) for ans in model_ans]
         total_score += sum(scores)
         total_count += len(scores)
+    return total_score / total_count if total_count > 0 else 0.0
+
+
+def KM(responses: ResponseWrapper, evaluator: Any):
+    """Calculate the accuracy of the model's responses against the ground truth."""
+    total_score = 0
+    total_count = 0
+
+    for response in responses.response_data:
+        corr_ans = response.meta_data["reference_answer"]
+        model_ans = response.response
+
+        if not isinstance(model_ans, list):
+            scores = [evaluator(ground_truth=corr_ans, model_answer=model_ans)]
+        elif isinstance(model_ans[0], list):
+            scores = [
+                evaluator(ground_truth=corr_ans, model_answer=sub_ans)
+                for sub_list in model_ans
+                for sub_ans in sub_list
+            ]
+        else:
+            scores = [evaluator(ground_truth=corr_ans, model_answer=ans) for ans in model_ans]
+
+        total_score += sum(scores)
+        total_count += len(scores)
+
     return total_score / total_count if total_count > 0 else 0.0
 
 

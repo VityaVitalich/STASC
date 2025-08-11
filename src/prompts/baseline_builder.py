@@ -1,8 +1,9 @@
 from typing import Any, List
 
+from encourage.prompts import Conversation, MetaData, Prompt
+
 from configs.config import Config
 from prompts.base import BasePromptBuilder
-from prompts.prompt_schemas import compose_chat_messages
 
 
 class BaselinePromptBuilder(BasePromptBuilder):
@@ -68,9 +69,8 @@ class BaselinePromptBuilder(BasePromptBuilder):
     def build_initial_generation_prompt(
         self,
         sample: dict,
-        tokenizer: Any,
+        group_id: Any,
         few_shot_prompts: List[dict] = [],
-        tokenize: bool = False,
         *args,
         **kwargs,
     ) -> Any:
@@ -83,14 +83,17 @@ class BaselinePromptBuilder(BasePromptBuilder):
             else user_question
         )
 
-        messages = compose_chat_messages(
-            system_prompt=self.system_prompt,
-            instructions=self.instructions,
-            user_question=user_question,
-            few_shot_prompts=few_shot_prompts,
-        )
-        return tokenizer.apply_chat_template(
-            messages, tokenize=tokenize, add_generation_prompt=True, enable_thinking=False
+        conversation = Conversation(self.system_prompt, user_question)
+        conversation.clear_conversation()
+        conversation.add_message("system", self.instructions)
+        if few_shot_prompts:
+            for prompt in few_shot_prompts:
+                conversation.add_message("user", prompt["prompts"][0])
+        conversation.add_message("user", user_question)
+        return Prompt(
+            id=group_id,
+            conversation=conversation,
+            meta_data=MetaData({"reference_answer": sample.get("reference", "")}),
         )
 
     def build_correction_prompt(self, *args, **kwargs) -> Any:
