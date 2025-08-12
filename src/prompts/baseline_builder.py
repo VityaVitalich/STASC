@@ -69,7 +69,8 @@ class BaselinePromptBuilder(BasePromptBuilder):
     def build_initial_generation_prompt(
         self,
         sample: dict,
-        group_id: Any,
+        tokenizer: Any,
+        # group_id: Any = "",
         few_shot_prompts: List[dict] = [],
         *args,
         **kwargs,
@@ -83,18 +84,26 @@ class BaselinePromptBuilder(BasePromptBuilder):
             else user_question
         )
 
-        conversation = Conversation(self.system_prompt, user_question)
-        conversation.clear_conversation()
+        conversation = Conversation(
+            "You are Qwen, created by Alibaba Cloud. You are a helpful assistant.",
+            self.system_prompt,
+        )
+        # conversation.clear_conversation()
         conversation.add_message("user", self.instructions)
         if few_shot_prompts:
             for prompt in few_shot_prompts:
                 conversation.add_message("user", prompt["prompts"][0])
         conversation.add_message("user", user_question)
-        return Prompt(
-            id=group_id,
+        prompt = Prompt(
+            id="group_id",
             conversation=conversation,
             meta_data=MetaData({"reference_answer": sample.get("reference", "")}),
         )
+        # tokenizer.apply_chat_template(prompt.conversation)
+        tokenized_prompt = tokenizer.apply_chat_template(
+            prompt.conversation, tokenize=False, add_generation_prompt=True, enable_thinking=False
+        )
+        return tokenized_prompt
 
     def build_correction_prompt(self, *args, **kwargs) -> Any:
         raise NotImplementedError

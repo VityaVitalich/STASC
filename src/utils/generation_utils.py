@@ -46,7 +46,7 @@ def gather_item_prompts(data, prompt_function, id_key="question_idx"):
         group_id = sample.get(id_key, idx)
 
         # The prompt function can return a single string or multiple strings
-        prompts = prompt_function(sample, group_id)
+        prompts = prompt_function(sample)
 
         if isinstance(prompts, str):
             prompts = [prompts]
@@ -140,7 +140,7 @@ def generate_for_dataset(data, prompt_function, sampling_params, id_key="id"):
         model_name="Qwen/Qwen2.5-1.5B-Instruct",
         base_url="http://localhost:8005/v1/",
     )
-    result = runner.run(prompt_collection=prompt_collection)
+    result = runner.run(prompt_collection=prompt_collection, max_workers=1)
     for response in result.response_data:
         response.response = response.response.strip().lower()
 

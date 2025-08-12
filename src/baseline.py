@@ -13,6 +13,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from encourage.llm import ResponseWrapper
 from encourage.utils import FileManager
+from transformers import AutoTokenizer  # pyright: ignore[reportPrivateImportUsage]
 from vllm import SamplingParams
 
 from configs.config import Config
@@ -45,7 +46,7 @@ def main(cfg: Config):
     mlflow.log_params(flatten_dict(cfg))
 
     # Load dataset
-    test_data = datasets.load_dataset(cfg.dataset.data_path, split="test")
+    test_data = datasets.load_dataset(cfg.dataset.data_path, split="test[:100]")
     mlflow.log_input(
         mlflow.data.pandas_dataset.from_pandas(test_data.to_pandas(), name=cfg.dataset.data_path),  # type: ignore[reportArgumentType]
         context="inference",
@@ -56,9 +57,11 @@ def main(cfg: Config):
 
     task_type = f"baseline_{cfg.dataset.task_type}"
     prompt_builder = get_prompt_builder(task_type)(cfg)  # type: ignore
+    tokenizer = AutoTokenizer.from_pretrained(cfg.model.model_path)
 
     initial_generation_prompt_func = partial(
         prompt_builder.build_initial_generation_prompt,
+        tokenizer=tokenizer,
         few_shot_prompts=generation_few_shot_prompts,
     )
 
