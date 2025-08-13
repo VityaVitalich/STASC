@@ -2,6 +2,7 @@
 name: "hotpot" # Name of the dataset
 task_type: "qa" # "qa" or "math"
 data_path: "VityaVitalich/adaptive_rag_hotpotqa"
+split: "test"
 id_col: "question_id" # Unique identifier column in the dataset. "question_id" for QA, "problem" for "unique_id"
 question_col: "question_text" # Column containing the question text. "question_text" for QA, "problem" for math500
 gold_col: "reference" # Reference/GT answer column. "reference" for QA, "answer" for math500

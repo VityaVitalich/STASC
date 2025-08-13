@@ -10,9 +10,9 @@ from datasets import Dataset, DatasetDict
 from transformers import AutoTokenizer  # pyright: ignore[reportPrivateImportUsage]
 from vllm import LLM, SamplingParams
 
+from evaluation.eval_utils import RewardEvaluator
 from generator_src.stasc_vllm_generation import collect_correction_stats
 from prompts.enum import get_prompt_builder
-from utils.eval_utils import RewardEvaluator
 from utils.generation_utils import generate_for_dataset, load_config, store_generation_results
 from utils.logger import run_subprocess_in_real_time, setup_logger
 from utils.utils import KM, construct_run_name

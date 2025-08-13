@@ -8,10 +8,10 @@ import torch
 from transformers import AutoTokenizer  # pyright: ignore[reportPrivateImportUsage]
 from vllm import LLM, SamplingParams
 
+from evaluation.eval_utils import RewardEvaluator
 from generator_src.stasc_vllm_generation import collect_correction_stats
 from prompts.debate_builder import DebatePromptBuilder
 from prompts.prompt_schemas import load_few_shot_prompts
-from utils.eval_utils import RewardEvaluator
 from utils.generation_utils import generate_for_dataset, load_config, store_generation_results
 from utils.utils import KM, construct_run_name
 

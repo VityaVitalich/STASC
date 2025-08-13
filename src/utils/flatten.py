@@ -49,3 +49,16 @@ def flatten_dict(config: dict | Config | Any) -> dict[str, str | int | float]:
     return {
         f"{key}{k}": v for key, value in config.items() for k, v in _process_values(value).items()
     }
+
+
+def flatten_predictions(predictions):
+    if not isinstance(predictions, list):
+        return [predictions]
+    # Recursively flatten the list
+    flattened = []
+    for pred in predictions:
+        if isinstance(pred, list):
+            flattened.extend(flatten_predictions(pred))
+        else:
+            flattened.append(pred)
+    return flattened

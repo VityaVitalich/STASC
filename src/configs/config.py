@@ -4,6 +4,7 @@ from typing import Optional
 
 @dataclass
 class Algo:
+    name: str = ""
     use_cot: bool = False
     run_name_specification: str = ""
     use_init_context: bool = False
@@ -28,6 +29,7 @@ class Dataset:
     # Required fields
     task_type: str = ""
     data_path: str = ""
+    split: str = ""
     id_col: str = ""
     question_col: str = ""
     gold_col: str = ""

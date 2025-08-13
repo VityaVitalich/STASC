@@ -7,9 +7,9 @@ from datasets import Dataset, DatasetDict
 from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
 
+from evaluation.eval_utils import has_answer
 from prompts.prompt_schemas import load_few_shot_prompts
 from prompts.star_prompts import star_rationale_generation_prompt, star_rationalization_prompt
-from utils.eval_utils import has_answer
 from utils.generation_utils import (
     generate_for_dataset,
     load_config,

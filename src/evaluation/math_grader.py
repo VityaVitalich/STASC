@@ -3,13 +3,14 @@
 Call grade_answer(given_answer: str, ground_truth: str).
 """
 
+import contextlib
 import re
 
 import sympy
 from pylatexenc import latex2text
 from sympy.parsing import sympy_parser
 
-from utils import math_normalize
+from evaluation import math_normalize
 
 # sympy might hang -- we don't care about trying to be lenient in these cases
 BAD_SUBSTRINGS = ["^{", "^("]
@@ -152,10 +153,8 @@ def _normalize(expr: str) -> str:
     if _is_float(expr) and _is_int(float(expr)):
         expr = str(int(round(float(expr))))
     if "\\" in expr:
-        try:
+        with contextlib.suppress(Exception):
             expr = _parse_latex(expr)
-        except:
-            pass
 
     # edge case with mixed numbers and negative signs
     expr = re.sub("- *", "-", expr)

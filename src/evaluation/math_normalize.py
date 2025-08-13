@@ -1,6 +1,5 @@
-"""
-This logic is largely copied from the Hendrycks' MATH release (math_equivalence).
-"""
+"""This logic is largely copied from the Hendrycks' MATH release (math_equivalence)."""
+
 import re
 from typing import Optional
 
@@ -11,7 +10,7 @@ def normalize_answer(answer: Optional[str]) -> Optional[str]:
     answer = answer.strip()
     try:
         # Remove enclosing `\text{}`.
-        m = re.search("^\\\\text\{(?P<text>.+?)\}$", answer)
+        m = re.search("^\\\\text\\{(?P<text>.+?)\\}$", answer)
         if m is not None:
             answer = m.group("text").strip()
         return _strip_string(answer)
@@ -126,7 +125,7 @@ def _strip_string(string):
 
     # remove percentage
     string = string.replace("\\%", "")
-    string = string.replace("\%", "")
+    string = string.replace(r"\%", "")
 
     # " 0." equivalent to " ." and "{0." equivalent to "{." Alternatively, add "0" if "." is the start of the string
     string = string.replace(" .", " 0.")

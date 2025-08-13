@@ -1,12 +1,12 @@
 from typing import Any, List
 
-from encourage.prompts import Conversation, MetaData, Prompt
+from datasets import Dataset
+from encourage.prompts import Conversation, MetaData, Prompt, PromptCollection
 
 from configs.config import Config
-from prompts.base import BasePromptBuilder
 
 
-class BaselinePromptBuilder(BasePromptBuilder):
+class BaselinePromptBuilder:
     """A prompt builder for baseline tasks.
     This builder supports three stages:
       1) Initial generation of the answer.
@@ -66,44 +66,41 @@ class BaselinePromptBuilder(BasePromptBuilder):
         context_prompt = self._create_context(all_context, num_documents=self.num_documents)
         return context_prompt + prompt
 
-    def build_initial_generation_prompt(
+    def build_initial_generation_prompts(
         self,
-        sample: dict,
-        tokenizer: Any,
-        # group_id: Any = "",
+        dataset: Dataset,
+        id_col: str = "",
+        reference_col: str = "",
         few_shot_prompts: List[dict] = [],
         *args,
         **kwargs,
     ) -> Any:
         """Builds the prompt for the initial answer generation."""
-        question_text = sample.get(self.question_col, "")
-        user_question = self._create_user_question(question_text)
-        user_question = (
-            self._prepend_context(user_question, sample, self.context_col)
-            if self.use_init_context
-            else user_question
-        )
+        prompts = []
+        for sample in dataset:
+            sample = sample if isinstance(sample, dict) else sample.to_dict()  # type: ignore
+            question_text = sample.get(self.question_col, "")
+            user_question = self._create_user_question(question_text)
+            user_question = (
+                self._prepend_context(user_question, sample, self.context_col)
+                if self.use_init_context
+                else user_question
+            )
 
-        conversation = Conversation(
-            "You are Qwen, created by Alibaba Cloud. You are a helpful assistant.",
-            self.system_prompt,
-        )
-        # conversation.clear_conversation()
-        conversation.add_message("user", self.instructions)
-        if few_shot_prompts:
-            for prompt in few_shot_prompts:
-                conversation.add_message("user", prompt["prompts"][0])
-        conversation.add_message("user", user_question)
-        prompt = Prompt(
-            id="group_id",
-            conversation=conversation,
-            meta_data=MetaData({"reference_answer": sample.get("reference", "")}),
-        )
-        # tokenizer.apply_chat_template(prompt.conversation)
-        tokenized_prompt = tokenizer.apply_chat_template(
-            prompt.conversation, tokenize=False, add_generation_prompt=True, enable_thinking=False
-        )
-        return tokenized_prompt
+            conversation = Conversation(user_prompt=self.system_prompt)
+            conversation.add_message("user", self.instructions)
+            if few_shot_prompts:
+                for prompt in few_shot_prompts:
+                    conversation.add_message("user", prompt["prompts"][0])
+            conversation.add_message("user", user_question)
+            prompts.append(
+                Prompt(
+                    id=sample.get(id_col, ""),
+                    conversation=conversation,
+                    meta_data=MetaData({"reference_answer": sample.get(reference_col, "")}),
+                )
+            )
+        return PromptCollection.from_prompts(prompts)
 
     def build_correction_prompt(self, *args, **kwargs) -> Any:
         raise NotImplementedError

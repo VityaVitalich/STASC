@@ -155,7 +155,7 @@ def has_answer(answers, text, match_type="string"):
                 uncased: lower cases text
                 filter_fn: user function that takes in an ngram list and returns
                 True or False to keep or not keep the ngram
-                as_string: return the ngram as a string vs list
+                as_strings: return the ngram as a string vs list
 
             """
 
@@ -235,7 +235,7 @@ def has_answer(answers, text, match_type="string"):
 
         def tokenize(self, text):
             data = []
-            matches = [m for m in self._regexp.finditer(text)]
+            matches = list(self._regexp.finditer(text))
             # print(f'matches: {matches}')
             for i in range(len(matches)):
                 # Get text

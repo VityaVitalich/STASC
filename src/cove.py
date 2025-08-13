@@ -1,226 +1,123 @@
-import argparse
 import logging
-import os
-from functools import partial
+from typing import Any
 
-import datasets
-import torch
-from transformers import AutoTokenizer  # pyright: ignore[reportPrivateImportUsage]
-from vllm import LLM, SamplingParams
+import mlflow
+from datasets import Dataset
+from encourage.llm import ResponseWrapper
+from vllm import LLM, SamplingParams  # pyright: ignore[reportPrivateImportUsage]
 
+from baseline import BaseExecutor
+from configs.config import Config
+from evaluation.eval_utils import RewardEvaluator
 from generator_src.stasc_vllm_generation import collect_correction_stats
-from prompts.cove_builder import CoVeQAPromptBuilder
+from prompts.cove_builder import CoVePromptBuilder
+from prompts.enum import get_prompt_builder
 from prompts.prompt_schemas import load_few_shot_prompts
-from utils.eval_utils import RewardEvaluator
-from utils.generation_utils import generate_for_dataset, load_config, store_generation_results
-from utils.utils import KM, construct_run_name
+from utils.flatten import flatten_dict
+
+logger = logging.getLogger(__name__)
 
 
-def setup_logger(run_name: str, log_file="star.log"):
-    """Sets up a logger named "star_logger_{run_name}" that writes both
-    to the console and to `log_file`.
-    """
-    logger_name = f"self_refine_logger_{run_name}"
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
+class CoveExecutor(BaseExecutor):
+    def __init__(
+        self, cfg: Config, test_data: Dataset, sampling_params: SamplingParams, model: LLM
+    ) -> None:
+        super().__init__(cfg, test_data, sampling_params, model)
+        self.prompt_builder: CoVePromptBuilder = get_prompt_builder(cfg.algo.name)(self.cfg)
 
-    # Avoid adding multiple handlers if already set
-    if not logger.handlers:
-        # 1) Console handler
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    def execute_steps(self) -> None:
+        """Executes the steps of the baseline algorithm."""
+        with self.start_child_run("initial_generation"):
+            mlflow.log_params(flatten_dict(self.cfg))
+            responses = self.step_1()
+            self.track_responses(responses, 1)
+        with self.start_child_run("verification_plan"):
+            responses = self.step_2(responses)
+            self.track_responses(responses, 2)
+        with self.start_child_run("verification_execution"):
+            responses = self.step_3(responses)
+            self.track_responses(responses, 3)
+        with self.start_child_run("revision"):
+            responses, stats = self.step_4(responses)
+            self.track_responses(responses, 4)
+        mlflow.log_metric("CxI", stats["correct_to_incorrect"])
+        mlflow.log_metric("CxC", stats["correct_to_correct"])
+        mlflow.log_metric("IxC", stats["incorrect_to_correct"])
+
+    def step_1(self) -> Any:
+        ## Prompt builder
+        few_shot_prompts = load_few_shot_prompts(self.cfg.dataset.few_shot_dir, "generation")
+        prompts = self.prompt_builder.build_initial_generation_prompts(
+            dataset=self.test_data,
+            id_col=self.cfg.dataset.id_col,
+            reference_col=self.cfg.dataset.gold_col,
+            few_shot_prompts=few_shot_prompts,
         )
-        console_handler.setFormatter(console_formatter)
+        responses = self.generate_responses(prompts)
 
-        # 2) File handler
-        file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
-        file_handler.setLevel(logging.INFO)
-        file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        file_handler.setFormatter(file_formatter)
+        ## Calculate accuracy
+        self.evaluate_responses(responses)
+        return responses
 
-        # Add handlers
-        logger.addHandler(console_handler)
-        logger.addHandler(file_handler)
+    def step_2(self, responses: ResponseWrapper) -> Any:
+        few_shot_prompts = load_few_shot_prompts(
+            self.cfg.dataset.few_shot_dir, "cove_verification_plan"
+        )
+        self.test_data = self.test_data.add_column(
+            "initial_generation",
+            [response.response for response in responses],
+        )
+        prompts = self.prompt_builder.build_verification_plan_prompt(
+            dataset=self.test_data,
+            initial_answer_col="initial_generation",
+            few_shot_prompts=few_shot_prompts,
+        )
+        responses = self.generate_responses(prompts)
 
-    return logger
+        ## Calculate accuracy
+        self.evaluate_responses(responses)
+        return responses
 
+    def step_3(self, responses: ResponseWrapper) -> Any:
+        few_shot_prompts = load_few_shot_prompts(
+            self.cfg.dataset.few_shot_dir, "cove_verification_execution"
+        )
+        self.test_data = self.test_data.add_column(
+            "verification_plan",
+            [response.response for response in responses],
+        )
+        prompts = self.prompt_builder.build_verification_execution_prompt(
+            dataset=self.test_data,
+            verification_plan_col="verification_plan",
+            few_shot_prompts=few_shot_prompts,
+        )
+        responses = self.generate_responses(prompts)
+        ## Calculate accuracy
+        self.evaluate_responses(responses)
+        return responses
 
-def perform_generation(data, model, prompt_func, sampling_params, id_key, output_col):
-    """Perform (rationale) generation or (rationalization) generation for the dataset.
-    Store the generation results in the dataset under 'output_col'.
-    """
-    generation_results = generate_for_dataset(
-        model=model,
-        data=data,
-        prompt_function=prompt_func,
-        sampling_params=sampling_params,
-        id_key=id_key,
-    )
-    return store_generation_results(data, generation_results, result_col=output_col, id_col=id_key)
+    def step_4(self, responses: ResponseWrapper) -> Any:
+        few_shot_prompts = load_few_shot_prompts(self.cfg.dataset.few_shot_dir, "cove_revision")
+        self.test_data = self.test_data.add_column(
+            "cove_revision",
+            [response.response for response in responses],
+        )
+        prompts = self.prompt_builder.build_correction_prompt(
+            dataset=self.test_data,
+            initial_answer_col="initial_generation",
+            verification_execution_col="verification_plan",
+            few_shot_prompts=few_shot_prompts,
+        )
+        responses = self.generate_responses(prompts)
+        ## Calculate accuracy
+        self.evaluate_responses(responses)
 
-
-def main():
-    parser = argparse.ArgumentParser(description="Run the CoVE Algorithm")
-    parser.add_argument(
-        "--model_config", type=str, required=True, help="Path to the YAML config file."
-    )
-    parser.add_argument(
-        "--data_config", type=str, required=True, help="Path to the YAML config file."
-    )
-    parser.add_argument(
-        "--algo_config", type=str, required=True, help="Path to the YAML config file."
-    )
-    args = parser.parse_args()
-
-    # Load configuration
-    algo_config = load_config(args.algo_config)
-    model_config = load_config(args.model_config)
-    data_config = load_config(args.data_config)
-
-    run_name = construct_run_name(
-        args.model_config, args.data_config, args.algo_config, algo_config["run_name_specification"]
-    )
-    algo_config["run_name"] = run_name
-
-    config = {**algo_config, **model_config, **data_config}
-
-    logger = setup_logger(config["run_name"], log_file=f"logs/general/{config['run_name']}.log")
-
-    # Load dataset
-    dataset = datasets.load_from_disk(str(config["data_path"]))
-    _, test_data = dataset["train"], dataset["test"]
-
-    tokenizer = AutoTokenizer.from_pretrained(config["model_path"], cache_dir=config["cache_dir"])
-
-    # few shots
-    initial_generation_few_shot_prompts = load_few_shot_prompts(
-        config["few_shot_dir"], "cove_generation"
-    )
-    verification_plan_few_shot_prompts = load_few_shot_prompts(
-        config["few_shot_dir"], "cove_verification_plan"
-    )
-    verification_execution_few_shot_prompts = load_few_shot_prompts(
-        config["few_shot_dir"], "cove_verification_execution"
-    )
-    revision_few_shot_prompts = load_few_shot_prompts(config["few_shot_dir"], "cove_revision")
-
-    # TODO: Make the PromptBuilder generic
-    prompt_builder = CoVeQAPromptBuilder(config)
-    reward_function = RewardEvaluator(config)
-
-    initial_generation_prompt_func = partial(
-        prompt_builder.build_initial_generation_prompt,
-        tokenizer=tokenizer,
-        few_shot_prompts=initial_generation_few_shot_prompts,
-    )
-    verification_plan_prompt_func = partial(
-        prompt_builder.build_verification_plan_prompt,
-        tokenizer=tokenizer,
-        few_shot_prompts=verification_plan_few_shot_prompts,
-    )
-    verification_execution_prompt_func = partial(
-        prompt_builder.build_verification_execution_prompt,
-        tokenizer=tokenizer,
-        few_shot_prompts=verification_execution_few_shot_prompts,
-    )
-    revision_prompt_func = partial(
-        prompt_builder.build_correction_prompt,
-        tokenizer=tokenizer,
-        few_shot_prompts=revision_few_shot_prompts,
-    )
-
-    save_dir = os.path.join(config["cache_dir"], "cove")
-    os.makedirs(save_dir, exist_ok=True)
-    run_dir = os.path.join(save_dir, config["run_name"])
-
-    # Initialize model (M0)
-    model = LLM(
-        config["model_path"],
-        download_dir=config["cache_dir"],
-        dtype="bfloat16",
-        tensor_parallel_size=torch.cuda.device_count(),
-        gpu_memory_utilization=config["gpu_memory_utilization"],
-        enforce_eager=config["enforce_eager"],
-        max_model_len=config["max_model_len"],
-        seed=config["random_seed"],
-        # disable_log_stats=True,  # Disables logging statistics
-        # disable_log_requests=True,  # Disables logging requests
-    )
-    # Sampling parameters
-    sampling_params = SamplingParams(
-        temperature=config["temperature"],
-        top_p=config["top_p"],
-        max_tokens=config["max_tokens"],
-        n=1,
-        seed=config["random_seed"],
-    )
-
-    test_data = perform_generation(
-        data=test_data,
-        model=model,
-        prompt_func=initial_generation_prompt_func,
-        sampling_params=sampling_params,
-        id_key=config["id_col"],
-        output_col="initial_generation",
-    )
-    test_data = perform_generation(
-        data=test_data,
-        model=model,
-        prompt_func=verification_plan_prompt_func,
-        sampling_params=sampling_params,
-        id_key=config["id_col"],
-        output_col="verification_plan",
-    )
-    test_data = perform_generation(
-        data=test_data,
-        model=model,
-        prompt_func=verification_execution_prompt_func,
-        sampling_params=sampling_params,
-        id_key=config["id_col"],
-        output_col="verification_execution",
-    )
-    test_data = perform_generation(
-        data=test_data,
-        model=model,
-        prompt_func=revision_prompt_func,
-        sampling_params=sampling_params,
-        id_key=config["id_col"],
-        output_col="revision",
-    )
-
-    init_acc = KM(
-        test_data,
-        target_col="initial_generation",
-        gt_col=config["gold_col"],
-        evaluator=reward_function,
-    )
-    logger.info(f"[INFO] Initial Accuracy {init_acc}")
-
-    revised_acc = KM(
-        test_data, target_col="revision", gt_col=config["gold_col"], evaluator=reward_function
-    )
-    logger.info(f"[INFO] revision Accuracy {revised_acc}")
-
-    stats_test = collect_correction_stats(
-        dataset=test_data,
-        question_col=config["question_col"],
-        reference_col=config["gold_col"],
-        inital_answer_col="initial_generation",
-        correction_col="revision",
-        reward_function=reward_function,
-    )
-    logger.info(
-        f"[INFO] Test Correction Statistics:\n"
-        f"[INFO]       - Correct → Incorrect: {stats_test['correct_to_incorrect']:.2f}%\n"
-        f"[INFO]       - Correct → Correct: {stats_test['correct_to_correct']:.2f}%\n"
-        f"[INFO]       - Incorrect → Correct: {stats_test['incorrect_to_correct']:.2f}%"
-    )
-
-    test_data.save_to_disk(run_dir)
-    logger.info("CoVE algorithm completed.")
-
-
-if __name__ == "__main__":
-    main()
+        stats_test = collect_correction_stats(
+            dataset=self.test_data,
+            reward_function=RewardEvaluator(self.cfg),
+            question_col=self.cfg.dataset.question_col,
+            reference_col=self.cfg.dataset.gold_col,
+            inital_answer_col="initial_generation",
+            correction_col="cove_revision",
+        )
+        return responses, stats_test

@@ -11,11 +11,10 @@ from datasets import Dataset, DatasetDict
 from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
 
+from evaluation.eval_utils import RewardEvaluator
 from prompts.enum import get_prompt_builder
 from prompts.prompt_schemas import load_few_shot_prompts
-from utils.eval_utils import RewardEvaluator
-from utils.generation_utils import generate_for_dataset, load_config, store_generation_results
-from utils.utils import KM, flatten_predictions
+from utils.flatten import flatten_predictions
 
 
 def collect_correction_stats(
