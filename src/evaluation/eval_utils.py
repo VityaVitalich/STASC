@@ -52,6 +52,8 @@ class RewardEvaluator:
     @staticmethod
     def extract_final_answer(generated_text: str, answer_marker: str = "Final Answer:") -> str:
         """Extracts final answer after the answer marker (case-insensitive)."""
+        if type(generated_text) is not str:
+            print(f"Generated text is not a string: {generated_text}")
         clean_text = generated_text.lower().replace("\r", "")
         idx = clean_text.find(answer_marker.lower())
         return generated_text[idx + len(answer_marker) :].strip() if idx != -1 else ""

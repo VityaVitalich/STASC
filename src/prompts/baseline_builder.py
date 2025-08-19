@@ -105,9 +105,6 @@ class BaselinePromptBuilder:
     def build_correction_prompt(self, *args, **kwargs) -> Any:
         raise NotImplementedError
 
-    def build_correction_messages_with_final_answer(self, *args, **kwargs):
-        raise NotImplementedError
-
 
 class BaselineQAPromptBuilder(BaselinePromptBuilder):
     # System prompts and instructions for each step

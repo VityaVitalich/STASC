@@ -5,16 +5,21 @@ from prompts.baseline_builder import (
     BaselineQAPromptBuilder,
 )
 from prompts.cove_builder import CoVeQAPromptBuilder
+from prompts.stasc_builder import StascQABuilder
 
 
 class PromptBuilderType(Enum):
-    BASE = "baseline_cot"
+    BASELINE_COT = "baseline_cot"
+    BASELINE_NO_COT = "baseline_no_cot"
     COVE = "cove"
+    STASC = "stasc"
 
 
 PROMPT_BUILDERS = {
-    PromptBuilderType.BASE: BaselineQAPromptBuilder,
+    PromptBuilderType.BASELINE_COT: BaselineQAPromptBuilder,
+    PromptBuilderType.BASELINE_NO_COT: BaselineQAPromptBuilder,
     PromptBuilderType.COVE: CoVeQAPromptBuilder,
+    PromptBuilderType.STASC: StascQABuilder,
 }
 
 

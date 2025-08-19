@@ -1,0 +1,17 @@
+# Model Configuration
+model_path: ""
+model_name_short: ""
+cache_dir: "/home/data/v.moskvoretskii/cache/"
+gpu_memory_utilization: 0.3 # GPU memory utilization (0.0 to 1.0)
+enforce_eager: False # Whether to enforce eager execution
+max_model_len: 4096 # Maximum model length
+random_seed: 42
+
+# Sampling Parameters
+temperature: 0.7 # Sampling temperature
+top_p: 0.8 # Top-p (nucleus) sampling
+max_tokens: 2048 # Maximum number of tokens to generate
+trust_remote_code: false
+use_fast_tokenizer: false
+torch_dtype: bfloat16
+model_revision: main

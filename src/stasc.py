@@ -4,6 +4,7 @@ import os
 
 import yaml
 
+from finetune.fine_tune import run_train
 from utils.generation_utils import load_config
 from utils.logger import run_subprocess_in_real_time, setup_logger
 from utils.utils import construct_run_name
@@ -191,11 +192,12 @@ def main():
             yaml.dump(ft_config, f, sort_keys=False)
 
         # (7) Fine-tune on the combined correct solutions
-        call_fine_tune(
-            config_yaml_path=temp_ft_config_path,
-            accelerate_config_path=args.accelerate_config_path,
-            logger=logger,
-        )
+        run_train(self.cfg)
+        # call_fine_tune(
+        #     config_yaml_path=temp_ft_config_path,
+        #     accelerate_config_path=args.accelerate_config_path,
+        #     logger=logger,
+        # )
 
         if not config["train_from_initial_model"]:
             ft_config["model"]["model_name_or_path"] = generation_model_path

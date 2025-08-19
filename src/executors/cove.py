@@ -1,14 +1,14 @@
 import logging
-from typing import Any
+from typing import Any, override
 
 import mlflow
 from datasets import Dataset
 from encourage.llm import ResponseWrapper
 from vllm import LLM, SamplingParams  # pyright: ignore[reportPrivateImportUsage]
 
-from baseline import BaseExecutor
 from configs.config import Config
 from evaluation.eval_utils import RewardEvaluator
+from executors.baseline import BaseExecutor
 from generator_src.stasc_vllm_generation import collect_correction_stats
 from prompts.cove_builder import CoVePromptBuilder
 from prompts.enum import get_prompt_builder
@@ -29,7 +29,7 @@ class CoveExecutor(BaseExecutor):
         """Executes the steps of the baseline algorithm."""
         with self.start_child_run("initial_generation"):
             mlflow.log_params(flatten_dict(self.cfg))
-            responses = self.step_1()
+            responses = self.step_1(self.test_data)
             self.track_responses(responses, 1)
         with self.start_child_run("verification_plan"):
             responses = self.step_2(responses)
@@ -44,11 +44,12 @@ class CoveExecutor(BaseExecutor):
         mlflow.log_metric("CxC", stats["correct_to_correct"])
         mlflow.log_metric("IxC", stats["incorrect_to_correct"])
 
-    def step_1(self) -> Any:
+    @override
+    def step_1(self, dataset: Dataset) -> Any:
         ## Prompt builder
         few_shot_prompts = load_few_shot_prompts(self.cfg.dataset.few_shot_dir, "generation")
         prompts = self.prompt_builder.build_initial_generation_prompts(
-            dataset=self.test_data,
+            dataset=dataset,
             id_col=self.cfg.dataset.id_col,
             reference_col=self.cfg.dataset.gold_col,
             few_shot_prompts=few_shot_prompts,
@@ -56,7 +57,7 @@ class CoveExecutor(BaseExecutor):
         responses = self.generate_responses(prompts)
 
         ## Calculate accuracy
-        self.evaluate_responses(responses)
+        self.evaluate_responses(responses, "test")
         return responses
 
     def step_2(self, responses: ResponseWrapper) -> Any:

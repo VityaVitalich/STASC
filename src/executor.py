@@ -11,9 +11,10 @@ from datasets import Dataset
 from dotenv import load_dotenv
 from vllm import SamplingParams  # pyright: ignore[reportPrivateImportUsage]
 
-from baseline import BaseExecutor
 from configs.config import Config
-from cove import CoveExecutor
+from executors.baseline import BaseExecutor
+from executors.cove import CoveExecutor
+from executors.stasc import STASCExecutor
 from utils.flatten import flatten_dict
 from utils.generation_utils import (
     init_model,
@@ -42,6 +43,7 @@ def main(cfg: Config):
         mlflow.log_params(flatten_dict(cfg))
         # Load dataset
         test_data: Dataset = datasets.load_dataset(cfg.dataset.data_path, split=cfg.dataset.split)  # type: ignore
+        train_data: Dataset = datasets.load_dataset(cfg.dataset.data_path, split="train")  # type: ignore
         mlflow.log_input(
             mlflow.data.pandas_dataset.from_pandas(
                 test_data.to_pandas(),  # type: ignore[reportArgumentType]
@@ -65,9 +67,13 @@ def main(cfg: Config):
             logger.info("[INFO] Running Cove Executor")
             executor = CoveExecutor(cfg, test_data, sampling_params, model)
             executor.execute_steps()
-        elif cfg.algo.name == "baseline_cot":
+        elif cfg.algo.name == "baseline_cot" or cfg.algo.name == "baseline_no_cot":
             logger.info("[INFO] Running Base Executor")
             executor = BaseExecutor(cfg, test_data, sampling_params, model)
+            executor.execute_steps()
+        elif cfg.algo.name == "stasc":
+            logger.info("[INFO] Running STASC Executor")
+            executor = STASCExecutor(cfg, test_data, train_data, sampling_params, model)
             executor.execute_steps()
 
 
