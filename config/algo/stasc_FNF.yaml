@@ -2,9 +2,7 @@ defaults:
   - _default
   - _self_
 
-name: stasc
-num_iterations: 2
+name: stasc_FNF
 fixed_initialization: True
 improving_filter: False
 fixed_fine_tuning: True
-number_corrections: 3

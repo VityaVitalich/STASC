@@ -9,7 +9,7 @@
             "console": "integratedTerminal",
             "preLaunchTask": "uv_sync",
             "env": {
-                "CUDA_VISIBLE_DEVICES": "1"
+                "CUDA_VISIBLE_DEVICES": "4"
             }
         }
     ]

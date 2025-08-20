@@ -1,0 +1,8 @@
+defaults:
+  - _default
+  - _self_
+
+name: stasc_FIE
+fixed_initialization: True
+improving_filter: True
+fixed_fine_tuning: False

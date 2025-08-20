@@ -12,7 +12,7 @@ from transformers import (
     Trainer,
 )
 
-from configs.config import Config
+from config import Config
 from finetune.utils import (
     build_training_args,
     encode_with_messages_format_chat_template,

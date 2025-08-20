@@ -1,0 +1,8 @@
+defaults:
+  - _default
+  - _self_
+
+name: stasc_ENE
+fixed_initialization: False
+improving_filter: False
+fixed_fine_tuning: False

@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 from functools import partial
 
@@ -9,42 +8,11 @@ from transformers import AutoTokenizer  # pyright: ignore[reportPrivateImportUsa
 from vllm import LLM, SamplingParams
 
 from evaluation.eval_utils import RewardEvaluator
-from generator_src.stasc_vllm_generation import collect_correction_stats
+from helper.generation import generate_for_dataset, load_config, store_generation_results
+from helper.stasc_vllm_generation import collect_correction_stats
 from prompts.debate_builder import DebatePromptBuilder
 from prompts.prompt_schemas import load_few_shot_prompts
-from utils.generation_utils import generate_for_dataset, load_config, store_generation_results
 from utils.utils import KM, construct_run_name
-
-
-def setup_logger(run_name: str, log_file="star.log"):
-    """Sets up a logger named "star_logger_{run_name}" that writes both
-    to the console and to `log_file`.
-    """
-    logger_name = f"self_refine_logger_{run_name}"
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
-
-    # Avoid adding multiple handlers if already set
-    if not logger.handlers:
-        # 1) Console handler
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        console_handler.setFormatter(console_formatter)
-
-        # 2) File handler
-        file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
-        file_handler.setLevel(logging.INFO)
-        file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        file_handler.setFormatter(file_formatter)
-
-        # Add handlers
-        logger.addHandler(console_handler)
-        logger.addHandler(file_handler)
-
-    return logger
 
 
 def perform_generation(data, model, prompt_func, sampling_params, id_key, output_col):

@@ -3,7 +3,7 @@ from typing import Any, List
 from datasets import Dataset
 from encourage.prompts import Conversation, MetaData, Prompt, PromptCollection
 
-from configs.config import Config
+from config import Config
 
 
 class BaselinePromptBuilder:
@@ -12,10 +12,8 @@ class BaselinePromptBuilder:
       1) Initial generation of the answer.
     """
 
-    initial_cot_system_prompt: str = ""
-    initial_no_cot_system_prompt: str = ""
-    initial_cot_instructions: str = ""
-    initial_no_cot_instructions: str = ""
+    system_prompt: str = ""
+    initial_instructions: str = ""
 
     def __init__(self, config: Config) -> None:
         """:param config: A dictionary that can include:
@@ -28,17 +26,12 @@ class BaselinePromptBuilder:
         self.use_init_context = config.algo.use_init_context
         self.num_documents = config.algo.num_documents
 
-        self.system_prompt = (
-            self.initial_cot_system_prompt if self.use_cot else self.initial_no_cot_system_prompt
-        )
-        self.instructions = (
-            self.initial_cot_instructions if self.use_cot else self.initial_no_cot_instructions
-        )
-
         if self.use_init_context:
-            self.instructions = "Consider the Documents provided below\n" + self.instructions
+            self.initial_instructions = (
+                "Consider the Documents provided below\n" + self.initial_instructions
+            )
 
-    def _create_user_question(self, question_text: str):
+    def _create_user_question(self, question_text: str) -> str:
         if self.use_cot:
             return (
                 f"Question:\n{question_text}\n\n"
@@ -52,7 +45,7 @@ class BaselinePromptBuilder:
                 "Strictly follow format Final Answer:"
             )
 
-    def _create_context(self, contexts: List[str], num_documents: int):
+    def _create_context(self, contexts: List[str], num_documents: int) -> str:
         limit = min(num_documents, len(contexts))
         resulting_string = ""
         for i, document in enumerate(contexts[:limit]):
@@ -61,7 +54,7 @@ class BaselinePromptBuilder:
 
         return resulting_string
 
-    def _prepend_context(self, prompt, sample, context_col):
+    def _prepend_context(self, prompt, sample, context_col) -> str:
         all_context = sample.get(context_col, [""])
         context_prompt = self._create_context(all_context, num_documents=self.num_documents)
         return context_prompt + prompt
@@ -72,8 +65,6 @@ class BaselinePromptBuilder:
         id_col: str = "",
         reference_col: str = "",
         few_shot_prompts: List[dict] = [],
-        *args,
-        **kwargs,
     ) -> Any:
         """Builds the prompt for the initial answer generation."""
         prompts = []
@@ -88,7 +79,7 @@ class BaselinePromptBuilder:
             )
 
             conversation = Conversation(user_prompt=self.system_prompt)
-            conversation.add_message("user", self.instructions)
+            conversation.add_message("user", self.initial_instructions)
             if few_shot_prompts:
                 for prompt in few_shot_prompts:
                     conversation.add_message("user", prompt["prompts"][0])
@@ -102,44 +93,37 @@ class BaselinePromptBuilder:
             )
         return PromptCollection.from_prompts(prompts)
 
-    def build_correction_prompt(self, *args, **kwargs) -> Any:
-        raise NotImplementedError
 
-
-class BaselineQAPromptBuilder(BaselinePromptBuilder):
+class BaselineCOTPromptBuilder(BaselinePromptBuilder):
     # System prompts and instructions for each step
-    initial_cot_system_prompt = (
+    system_prompt = (
         "You are a helpful reasoning assistant in general domain question answering. "
         "Please reason through the question step by step very shortly before giving a final answer."
     )
-    initial_no_cot_system_prompt = (
-        "You are a helpful assistant in general domain question answering. "
-        "Please output only the final answer without any other information."
-    )
-
-    initial_cot_instructions = (
+    initial_instructions = (
         "Generate a short chain-of-thought rationale very shortly,"
         "and then provide the final answer."
         "Step-by-step reasoning:\n"
         "Final Answer:\n"
     )
 
-    initial_no_cot_instructions = (
+
+class BaselineNoCOTPromptBuilder(BaselinePromptBuilder):
+    system_prompt = (
+        "You are a helpful assistant in general domain question answering. "
+        "Please output only the final answer without any other information."
+    )
+
+    initial_instructions = (
         "Generate only a final answer without any additional information.\nFinal Answer:\n"
     )
 
 
 class BaselineMathPromptBuilder(BaselinePromptBuilder):
     # System prompts and instructions for each step
-    initial_cot_system_prompt = (
-        "Please reason step by step, and put your final answer within \\boxed{{}}"
-    )
+    system_prompt = "Please reason step by step, and put your final answer within \\boxed{{}}"
 
-    initial_no_cot_system_prompt = (
+    initial_instructions = (
         "Please output the final answer immediately, do not include any "
         "other information, and put your final answer within \\boxed{{}}"
     )
-
-    initial_cot_instructions = ""
-
-    initial_no_cot_instructions = ""

@@ -5,22 +5,20 @@ from typing import Optional
 @dataclass
 class Algo:
     name: str = ""
+
     use_cot: bool = False
-    run_name_specification: str = ""
     use_init_context: bool = False
     num_documents: int = 0
     use_corr_context: bool = False
-    num_star_iterations: int = 0
 
-    initial_answer_with_new_model: bool = True
-    only_better_correction: bool = False
-    train_from_initial_model: bool = True
+    num_iterations: int = 0
 
-    number_output_initial_generations: int = 1
-    number_output_corrections: int = 1
+    fixed_initialization: bool = True
+    improving_filter: bool = False
+    fixed_fine_tuning: bool = True
+    number_corrections: int = 3
 
     finalize_judgement: bool = False
-
     num_refine_iterations: int = 5
 
 
@@ -116,8 +114,5 @@ class Config:
     training: DataTrainingArguments
     lora: LoRAArguments
 
-    base_url: str = ""
-    vllm_port: int = 18123
     run_name: str = ""
     accelerate_config_path: str = "config/accelerate.yaml"
-    iteration: int = 0

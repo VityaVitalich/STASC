@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-from utils.generation_utils import (
+from helper.generation import (
     load_config,
 )
 

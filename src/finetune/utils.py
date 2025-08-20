@@ -2,7 +2,7 @@ import torch
 from datasets import DatasetDict, load_from_disk
 from transformers import TrainingArguments
 
-from configs.config import DataTrainingArguments
+from config import DataTrainingArguments
 
 
 def load_hf_datasets(data_args: DataTrainingArguments, dataset_path: str) -> DatasetDict:
@@ -21,22 +21,6 @@ def load_hf_datasets(data_args: DataTrainingArguments, dataset_path: str) -> Dat
         )
         raw_datasets["train"] = train_test["train"]
         raw_datasets["validation"] = train_test["test"]
-
-    # 3. Optionally downsample the dataset to `data_args.dataset_percentage`
-    # if data_args.dataset_percentage < 100:
-    #     dataset_frac = data_args.dataset_percentage / 100.0
-    #     # Subsample train
-    #     dataset_parts = raw_datasets["train"].train_test_split(
-    #         train_size=dataset_frac, seed=data_args.seed
-    #     )
-    #     raw_datasets["train"] = dataset_parts["train"]
-
-    #     # Subsample validation only if it exists
-    #     if "validation" in raw_datasets:
-    #         dataset_parts = raw_datasets["validation"].train_test_split(
-    #             test_size=dataset_frac, seed=data_args.seed
-    #         )
-    #         raw_datasets["validation"] = dataset_parts["test"]
 
     return DatasetDict(raw_datasets)
 
@@ -151,7 +135,7 @@ def build_training_args(training_cfg: DataTrainingArguments) -> TrainingArgument
         logging_steps=training_cfg.logging_steps,
         do_train=training_cfg.do_train,
         do_eval=training_cfg.do_eval,
-        remove_unused_columns=True,
+        remove_unused_columns=False,
         bf16=True,
         report_to=["mlflow"],
     )

@@ -9,16 +9,12 @@ import mlflow
 import mlflow.data.pandas_dataset
 from datasets import Dataset
 from dotenv import load_dotenv
-from vllm import SamplingParams  # pyright: ignore[reportPrivateImportUsage]
+from vllm import SamplingParams
 
-from configs.config import Config
-from executors.baseline import BaseExecutor
-from executors.cove import CoveExecutor
-from executors.stasc import STASCExecutor
+import executors  # noqa: F401, E402
+from config import Config
+from executors.factory import ExecutorRegistry
 from utils.flatten import flatten_dict
-from utils.generation_utils import (
-    init_model,
-)
 
 config_path = str((Path(__file__).parents[1] / "config").resolve())
 
@@ -60,21 +56,21 @@ def main(cfg: Config):
             n=1,
             seed=cfg.model.random_seed,
         )
-        model = init_model(cfg)
 
-        ## TODO Add class for deciding which executor is called
-        if cfg.algo.name == "cove":
-            logger.info("[INFO] Running Cove Executor")
-            executor = CoveExecutor(cfg, test_data, sampling_params, model)
-            executor.execute_steps()
-        elif cfg.algo.name == "baseline_cot" or cfg.algo.name == "baseline_no_cot":
-            logger.info("[INFO] Running Base Executor")
-            executor = BaseExecutor(cfg, test_data, sampling_params, model)
-            executor.execute_steps()
-        elif cfg.algo.name == "stasc":
-            logger.info("[INFO] Running STASC Executor")
-            executor = STASCExecutor(cfg, test_data, train_data, sampling_params, model)
-            executor.execute_steps()
+        ## Handle all variants of STASC
+        name = cfg.algo.name
+        if "stasc" in cfg.algo.name:
+            name = "stasc"
+        if "star" in cfg.algo.name:
+            name = "stasc"
+
+        ExecutorRegistry.create(
+            name,
+            cfg,
+            test_data,
+            train_data,
+            sampling_params,
+        ).execute_steps()
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import os
 import yaml
 
 from finetune.fine_tune import run_train
-from utils.generation_utils import load_config
+from helper.generation import load_config
 from utils.logger import run_subprocess_in_real_time, setup_logger
 from utils.utils import construct_run_name
 

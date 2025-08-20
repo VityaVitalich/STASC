@@ -4,12 +4,13 @@ from typing import Any, override
 import mlflow
 from datasets import Dataset
 from encourage.llm import ResponseWrapper
-from vllm import LLM, SamplingParams  # pyright: ignore[reportPrivateImportUsage]
+from vllm import SamplingParams  # pyright: ignore[reportPrivateImportUsage]
 
-from configs.config import Config
-from evaluation.eval_utils import RewardEvaluator
+from config import Config
+from evaluation.eval_utils import RewardEvaluator, collect_correction_stats
 from executors.baseline import BaseExecutor
-from generator_src.stasc_vllm_generation import collect_correction_stats
+from executors.factory import ExecutorRegistry
+from helper.generation import generate_responses, init_model
 from prompts.cove_builder import CoVePromptBuilder
 from prompts.enum import get_prompt_builder
 from prompts.prompt_schemas import load_few_shot_prompts
@@ -18,12 +19,18 @@ from utils.flatten import flatten_dict
 logger = logging.getLogger(__name__)
 
 
+@ExecutorRegistry.register("cove")
 class CoveExecutor(BaseExecutor):
     def __init__(
-        self, cfg: Config, test_data: Dataset, sampling_params: SamplingParams, model: LLM
+        self,
+        cfg: Config,
+        test_data: Dataset,
+        train_data: Any,
+        sampling_params: SamplingParams,
     ) -> None:
-        super().__init__(cfg, test_data, sampling_params, model)
+        super().__init__(cfg, test_data, train_data, sampling_params)
         self.prompt_builder: CoVePromptBuilder = get_prompt_builder(cfg.algo.name)(self.cfg)
+        self.model = init_model(self.cfg)
 
     def execute_steps(self) -> None:
         """Executes the steps of the baseline algorithm."""
@@ -54,7 +61,7 @@ class CoveExecutor(BaseExecutor):
             reference_col=self.cfg.dataset.gold_col,
             few_shot_prompts=few_shot_prompts,
         )
-        responses = self.generate_responses(prompts)
+        responses = generate_responses(self.cfg, prompts, self.model, self.sampling_params)
 
         ## Calculate accuracy
         self.evaluate_responses(responses, "test")
@@ -73,7 +80,7 @@ class CoveExecutor(BaseExecutor):
             initial_answer_col="initial_generation",
             few_shot_prompts=few_shot_prompts,
         )
-        responses = self.generate_responses(prompts)
+        responses = generate_responses(self.cfg, prompts, self.model, self.sampling_params)
 
         ## Calculate accuracy
         self.evaluate_responses(responses)
@@ -92,7 +99,7 @@ class CoveExecutor(BaseExecutor):
             verification_plan_col="verification_plan",
             few_shot_prompts=few_shot_prompts,
         )
-        responses = self.generate_responses(prompts)
+        responses = generate_responses(self.cfg, prompts, self.model, self.sampling_params)
         ## Calculate accuracy
         self.evaluate_responses(responses)
         return responses
@@ -103,20 +110,19 @@ class CoveExecutor(BaseExecutor):
             "cove_revision",
             [response.response for response in responses],
         )
-        prompts = self.prompt_builder.build_correction_prompt(
+        prompts = self.prompt_builder.build_correction_prompts(
             dataset=self.test_data,
             initial_answer_col="initial_generation",
             verification_execution_col="verification_plan",
             few_shot_prompts=few_shot_prompts,
         )
-        responses = self.generate_responses(prompts)
+        responses = generate_responses(self.cfg, prompts, self.model, self.sampling_params)
         ## Calculate accuracy
         self.evaluate_responses(responses)
 
         stats_test = collect_correction_stats(
             dataset=self.test_data,
             reward_function=RewardEvaluator(self.cfg),
-            question_col=self.cfg.dataset.question_col,
             reference_col=self.cfg.dataset.gold_col,
             inital_answer_col="initial_generation",
             correction_col="cove_revision",

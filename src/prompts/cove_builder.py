@@ -3,21 +3,17 @@ from typing import List
 from datasets import Dataset
 from encourage.prompts import Conversation, MetaData, Prompt, PromptCollection
 
-from configs.config import Config
-from prompts.baseline_builder import BaselinePromptBuilder
+from config import Config
+from prompts.baseline_builder import BaselineCOTPromptBuilder
 
 
-# generate initial response
-# generate a verification plan. fact - verification
-# execute verifications
-# generate a revision
-class CoVePromptBuilder(BaselinePromptBuilder):
+class CoVePromptBuilder(BaselineCOTPromptBuilder):
     """A prompt builder for baseline tasks.
     This builder supports three stages:
       1) Initial generation of the answer.
     """
 
-    initial_system_prompt: str = ""
+    system_prompt: str = ""
     initial_instructions: str = ""
     verification_plan_prompt: str = ""
     verification_execution_instructions: str = ""
@@ -29,7 +25,7 @@ class CoVePromptBuilder(BaselinePromptBuilder):
         """
         self.config = config
         self.question_col = config.dataset.question_col
-        self.system_prompt = self.initial_system_prompt
+        self.system_prompt = self.system_prompt
         self.instructions = self.initial_instructions
         self.use_init_context = config.algo.use_init_context
 
@@ -120,7 +116,7 @@ class CoVePromptBuilder(BaselinePromptBuilder):
 
         return PromptCollection.from_prompts(prompts)
 
-    def build_correction_prompt(
+    def build_correction_prompts(
         self,
         dataset: Dataset,
         initial_answer_col: str = "initial_generation",
@@ -166,13 +162,10 @@ class CoVePromptBuilder(BaselinePromptBuilder):
 
         return PromptCollection.from_prompts(prompts)
 
-    def build_correction_messages_with_final_answer(self, *args, **kwargs):
-        raise NotImplementedError
-
 
 class CoVeQAPromptBuilder(CoVePromptBuilder):
     # System prompts and instructions for each step
-    initial_system_prompt = (
+    system_prompt = (
         "You are a helpful reasoning assistant in general domain question answering. "
         "Please reason through the question step by step very shortly before giving a final answer."
     )
@@ -209,17 +202,6 @@ class CoVeQAPromptBuilder(CoVePromptBuilder):
     )
 
 
-class CoVeMathPromptBuilder(CoVePromptBuilder):
+class CoVeMathPromptBuilder(CoVeQAPromptBuilder):
     # System prompts and instructions for each step
-    initial_cot_system_prompt = (
-        "Please reason step by step, and put your final answer within \\boxed{{}}"
-    )
-
-    initial_no_cot_system_prompt = (
-        "Please output the final answer immediately, do not include any "
-        "other information, and put your final answer within \\boxed{{}}"
-    )
-
-    initial_cot_instructions = ""
-
-    initial_no_cot_instructions = ""
+    system_prompt = "Please reason step by step, and put your final answer within \\boxed{{}}"

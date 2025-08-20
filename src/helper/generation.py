@@ -1,5 +1,6 @@
 import contextlib
 import gc
+from typing import Optional
 
 import ray
 import torch
@@ -12,7 +13,7 @@ from vllm.distributed.parallel_state import (
     destroy_model_parallel,
 )
 
-from configs.config import Config
+from config import Config
 
 
 def generate_responses(
@@ -37,18 +38,23 @@ def generate_responses(
     responses = ResponseWrapper.from_request_output(request_outputs, prompt_collection)  # type: ignore
 
     for response in responses.response_data:
-        response.response = response.response.strip().lower()
+        if isinstance(response.response, list):
+            response.response = [
+                r.strip().lower() if isinstance(r, str) else r for r in response.response
+            ]
+        elif isinstance(response.response, str):
+            response.response = response.response.strip().lower()
 
     return responses
 
 
-def init_model(cfg: Config) -> LLM:
+def init_model(cfg: Config, model_path: Optional[str] = None) -> LLM:
     """Initializes the model with the given configuration."""
-    print("Initializing model from Path:", cfg.model.model_path)
+    final_model_path = model_path if model_path else cfg.model.model_path
+
+    print("Initializing model from Path:", final_model_path)
     return LLM(
-        model=cfg.model.model_path,
-        # model="models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
-        # download_dir="/ltstorage/home/strich/STASC/model/",
+        model=final_model_path,
         gpu_memory_utilization=cfg.model.gpu_memory_utilization,
         enforce_eager=cfg.model.enforce_eager,
         max_model_len=cfg.model.max_model_len,

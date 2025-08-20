@@ -8,26 +8,31 @@ from datasets import Dataset
 from encourage.utils import FileManager
 from vllm import LLM, SamplingParams  # pyright: ignore[reportPrivateImportUsage]
 
-from configs.config import Config
+from config import Config
 from evaluation.eval_utils import RewardEvaluator, evaluate_responses
+from executors.factory import ExecutorRegistry
+from helper.generation import generate_responses, init_model
 from prompts.enum import get_prompt_builder
 from prompts.prompt_schemas import load_few_shot_prompts
 from utils.flatten import flatten_dict
-from utils.generation_utils import (
-    generate_responses,
-)
 
 logger = logging.getLogger(__name__)
 
 
+@ExecutorRegistry.register("baseline_cot")
+@ExecutorRegistry.register("baseline_no_cot")
 class BaseExecutor:
     def __init__(
-        self, cfg: Config, test_data: Dataset, sampling_params: SamplingParams, model: LLM
+        self,
+        cfg: Config,
+        test_data: Dataset,
+        train_data: Any,
+        sampling_params: SamplingParams,
     ):
         self.cfg = cfg
         self.test_data = test_data
+        self.train_data = train_data  # It is not used in the Baseline!
         self.sampling_params = sampling_params
-        self.model = model
         self.prompt_builder = get_prompt_builder(cfg.algo.name)(self.cfg)
         self.root_folder = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
 
@@ -35,11 +40,11 @@ class BaseExecutor:
         """Executes the steps of the baseline algorithm."""
         with self.start_child_run("initial_generation"):
             mlflow.log_params(flatten_dict(self.cfg))
-            responses, acc = self.step_1(self.test_data)
+            model = init_model(self.cfg)
+            responses = self.step_1(self.test_data, model)
             self.track_responses(responses, step_number=1)
-        mlflow.log_metric("ACC", acc)
 
-    def step_1(self, dataset: Dataset) -> Any:
+    def step_1(self, dataset: Dataset, model: LLM) -> Any:
         ## Prompt builder
         generation_few_shot_prompts = load_few_shot_prompts(
             self.cfg.dataset.few_shot_dir, "generation"
@@ -50,20 +55,11 @@ class BaseExecutor:
             reference_col=self.cfg.dataset.gold_col,
             few_shot_prompts=generation_few_shot_prompts,
         )
-        responses = self.generate_responses(prompts)
+        responses = generate_responses(self.cfg, prompts, model, self.sampling_params)
 
         ## Calculate accuracy
-        acc = self.evaluate_responses(responses, "test")
-        return responses, acc
-
-    def generate_responses(self, prompts: Any) -> Any:
-        """Generates responses for the dataset."""
-        return generate_responses(
-            cfg=self.cfg,
-            prompt_collection=prompts,
-            model=self.model,
-            sampling_params=self.sampling_params,
-        )
+        self.evaluate_responses(responses, "test")
+        return responses
 
     def start_child_run(self, run_name: str) -> mlflow.ActiveRun:
         """Starts a child MLflow run."""

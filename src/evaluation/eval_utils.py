@@ -1,13 +1,14 @@
 import warnings
-from typing import Any, Callable, Dict, Iterable, List, Union
+from typing import Callable, List
 
+import pandas as pd
+from datasets import Dataset
 from encourage.llm import ResponseWrapper
 
-from configs.config import Config
+from config import Config
 from evaluation.math_grader import grade_answer
 from evaluation.qa_grader import EM_compute, F1_compute, has_answer
 from evaluation.qwen_math_parser import extract_answer
-from utils.flatten import flatten_predictions
 
 
 class RewardEvaluator:
@@ -98,61 +99,37 @@ def evaluate_responses(responses: ResponseWrapper, evaluator: RewardEvaluator) -
 
 
 def collect_correction_stats(
-    dataset: Iterable[Dict[str, Union[str, List[Any], Any]]],
+    dataset: Dataset,
     reward_function: Callable[..., bool],
-    question_col: str = "question",
     reference_col: str = "reference",
     inital_answer_col: str = "star_correction_initial_generation",
     correction_col: str = "star_correction",
-) -> Dict[str, float]:
-    """Computes statistics on answer corrections as percentages:.
+) -> dict[str, float]:
+    df: pd.DataFrame = dataset.to_pandas()  # type: ignore
+    # Apply reward function
+    df["init_reward"] = df.apply(
+        lambda row: reward_function(
+            ground_truth=row[reference_col], model_answer=row[inital_answer_col]
+        ),
+        axis=1,
+    )
+    df["corr_reward"] = df.apply(
+        lambda row: reward_function(
+            ground_truth=row[reference_col], model_answer=row[correction_col]
+        ),
+        axis=1,
+    )
 
-    - correct_to_incorrect: Correct → Incorrect
-    - correct_to_correct:   Correct → Correct
-    - incorrect_to_correct: Incorrect → Correct
-
-    Args:
-        dataset: Iterable of rows containing answers.
-        reward_function: Function to check correctness (returns bool).
-        question_col: Column name for the question (unused here but kept for consistency).
-        reference_col: Column name for ground truth answers.
-        inital_answer_col: Column name for initial model answers.
-        correction_col: Column name for corrected model answers.
-
-    Returns:
-        A dictionary with percentages for each category.
-
-    """
-    correct_to_incorrect = correct_to_correct = incorrect_to_correct = total_corrections = 0
-
-    for row in dataset:
-        reference = row[reference_col]
-        initial_answers = row[inital_answer_col]  # type: ignore
-        corrected_answers = row[correction_col]  # type: ignore
-
-        for init_answer in initial_answers:  # type: ignore
-            init_correct = reward_function(ground_truth=reference, model_answer=init_answer)
-
-            for correction in flatten_predictions(corrected_answers):
-                correction_correct = reward_function(
-                    ground_truth=reference, model_answer=correction
-                )
-                total_corrections += 1
-
-                if init_correct and not correction_correct:
-                    correct_to_incorrect += 1
-                elif init_correct and correction_correct:
-                    correct_to_correct += 1
-                elif not init_correct and correction_correct:
-                    incorrect_to_correct += 1
-
-    if total_corrections == 0:
-        return dict.fromkeys(
-            ["correct_to_incorrect", "correct_to_correct", "incorrect_to_correct"], 0.0
-        )  # ty: ignore
-
-    return {
-        "correct_to_incorrect": (correct_to_incorrect / total_corrections) * 100,
-        "correct_to_correct": (correct_to_correct / total_corrections) * 100,
-        "incorrect_to_correct": (incorrect_to_correct / total_corrections) * 100,
+    # Transition categories
+    conditions = {
+        "correct_to_incorrect": (df["init_reward"] & ~df["corr_reward"]),
+        "correct_to_correct": (df["init_reward"] & df["corr_reward"]),
+        "incorrect_to_correct": (~df["init_reward"] & df["corr_reward"]),
+        "incorrect_to_incorrect": (~df["init_reward"] & ~df["corr_reward"]),
     }
+
+    total = len(df)
+    if total == 0:
+        return dict.fromkeys(conditions.keys(), 0.0)
+
+    return {k: (v.sum() / total) * 100 for k, v in conditions.items()}
