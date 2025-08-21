@@ -10,6 +10,12 @@ To reproduce the experiments use the following command with the specified config
 CUDA_VISIBLE_DEVICES=* uv run src/executor.py ARGS
 ```
 
+## TODOS
+
+- Implement Debate, SFT, Self-Refine
+- Control if STASC_RAG and Baseline RAG are working properly
+- Run experiments with different models
+- Test on other datasets
 
 
 ## Self Correction Configuration
