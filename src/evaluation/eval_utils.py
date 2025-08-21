@@ -1,8 +1,6 @@
 import warnings
 from typing import Callable, List
 
-import pandas as pd
-from datasets import Dataset
 from encourage.llm import ResponseWrapper
 
 from config import Config
@@ -96,40 +94,3 @@ def evaluate_responses(responses: ResponseWrapper, evaluator: RewardEvaluator) -
         total_count += len(scores)
 
     return total_score / total_count if total_count > 0 else 0.0
-
-
-def collect_correction_stats(
-    dataset: Dataset,
-    reward_function: Callable[..., bool],
-    reference_col: str = "reference",
-    inital_answer_col: str = "star_correction_initial_generation",
-    correction_col: str = "star_correction",
-) -> dict[str, float]:
-    df: pd.DataFrame = dataset.to_pandas()  # type: ignore
-    # Apply reward function
-    df["init_reward"] = df.apply(
-        lambda row: reward_function(
-            ground_truth=row[reference_col], model_answer=row[inital_answer_col]
-        ),
-        axis=1,
-    )
-    df["corr_reward"] = df.apply(
-        lambda row: reward_function(
-            ground_truth=row[reference_col], model_answer=row[correction_col]
-        ),
-        axis=1,
-    )
-
-    # Transition categories
-    conditions = {
-        "correct_to_incorrect": (df["init_reward"] & ~df["corr_reward"]),
-        "correct_to_correct": (df["init_reward"] & df["corr_reward"]),
-        "incorrect_to_correct": (~df["init_reward"] & df["corr_reward"]),
-        "incorrect_to_incorrect": (~df["init_reward"] & ~df["corr_reward"]),
-    }
-
-    total = len(df)
-    if total == 0:
-        return dict.fromkeys(conditions.keys(), 0.0)
-
-    return {k: (v.sum() / total) * 100 for k, v in conditions.items()}

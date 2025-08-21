@@ -58,7 +58,8 @@ def init_model(cfg: Config, model_path: Optional[str] = None) -> LLM:
         gpu_memory_utilization=cfg.model.gpu_memory_utilization,
         enforce_eager=cfg.model.enforce_eager,
         max_model_len=cfg.model.max_model_len,
-        dtype="bfloat16",
+        seed=cfg.model.random_seed,
+        dtype=cfg.model.torch_dtype,
         tensor_parallel_size=torch.cuda.device_count(),
     )
 

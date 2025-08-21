@@ -1,8 +1,9 @@
 import logging
 from pathlib import Path
 
+import mlflow
 import torch
-from datasets import DatasetDict
+from datasets import load_from_disk
 from peft import LoraConfig, TaskType, get_peft_model  # pyright: ignore[reportPrivateImportUsage]
 from transformers import (
     AutoConfig,
@@ -17,7 +18,6 @@ from finetune.utils import (
     build_training_args,
     encode_with_messages_format_chat_template,
     encode_with_prompt_completion_format,
-    load_hf_datasets,
 )
 
 config_path = str((Path(__file__).parents[2] / "config").resolve())
@@ -81,12 +81,10 @@ def run_train(cfg: Config, iteration: int) -> None:
 
     # 5) Load dataset
     print(f"[INFO] Loading Dataset from at {cfg.dataset.data_path}")
-    raw_datasets: DatasetDict = load_hf_datasets(
-        data_args=cfg.training, dataset_path=cfg.dataset.data_path
-    )
+    train_dataset = load_from_disk(cfg.dataset.data_path)
 
     # 6) Tokenize dataset
-    train_cols = raw_datasets["train"].column_names
+    train_cols = train_dataset.column_names
     if "prompt" in train_cols and "completion" in train_cols:
 
         def encode_function(ex):
@@ -106,8 +104,9 @@ def run_train(cfg: Config, iteration: int) -> None:
         raise ValueError(
             "No matching columns found. Please have either 'prompt'/'completion' or 'messages' in your dataset."
         )
+    mlflow.log_table(train_dataset.to_pandas(), "train_dataset.json")
 
-    lm_datasets = raw_datasets.map(
+    lm_datasets = train_dataset.map(
         encode_function,
         batched=False,
         num_proc=cfg.training.preprocessing_num_workers,
@@ -130,15 +129,11 @@ def run_train(cfg: Config, iteration: int) -> None:
     # 7) Data collator
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding="longest")
 
-    train_dataset = lm_datasets["train"]
-    eval_dataset = lm_datasets.get("validation", None)
-
     # 8) Create Trainer
     trainer = Trainer(
         model=model,
         args=build_training_args(cfg.training),
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        train_dataset=lm_datasets,
         processing_class=tokenizer,
         data_collator=data_collator,
     )

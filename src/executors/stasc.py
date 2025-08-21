@@ -7,7 +7,7 @@ from encourage.llm import ResponseWrapper
 from vllm import LLM, SamplingParams
 
 from config import Config
-from evaluation.eval_utils import RewardEvaluator, collect_correction_stats
+from evaluation.eval_utils import RewardEvaluator
 from executors.baseline import BaseExecutor
 from executors.factory import ExecutorRegistry
 from finetune.fine_tune import run_train
@@ -47,8 +47,8 @@ class STASCExecutor(BaseExecutor):
             test_responses = self.step_1(self.test_data, root_model)
             train_responses = self.step_1(self.root_train_data, root_model)
             unload_model(root_model)
-            self.evaluate_responses(test_responses, "test")
-            self.evaluate_responses(train_responses, "train")
+            self.evaluate_responses(test_responses, "i_test")
+            self.evaluate_responses(train_responses, "i_train")
 
             self.track_responses(test_responses, "test_init")
             self.track_responses(train_responses, "train_init")
@@ -67,7 +67,6 @@ class STASCExecutor(BaseExecutor):
                     model = init_model(self.cfg, self.model_path_m1)
                     train_responses = self.step_1(self.root_train_data, model)
                     unload_model(model)
-                    self.evaluate_responses(test_responses, "test")
 
                     self.root_train_data = self.root_train_data.remove_columns("initial_generation")
                     self.root_train_data = self.root_train_data.add_column(
@@ -77,10 +76,12 @@ class STASCExecutor(BaseExecutor):
                     logger.info("Override initial_generation for train data")
 
                 ## Step 2: Sample Corrections
+                logger.info("\nStarting Step 2: Sample Corrections\n")
                 self.step_2(iteration)
 
                 ## Step 3: Filter Corrections
                 ## Deciding how corrections are filtered
+                logger.info("\nStarting Step 3: Filter Corrections\n")
                 self.step_3(iteration)
 
             # Step 4: Fine-Tune Model
@@ -92,14 +93,11 @@ class STASCExecutor(BaseExecutor):
                 test_responses = self.step_1(self.test_data, model)
                 self.track_responses(test_responses, f"test_{iteration}")
                 unload_model(model)
-                self.evaluate_responses(test_responses, "test")
+                self.evaluate_responses(test_responses, "i_test")
 
                 ## Update Generation Model Path for Step 1 to get Evolving Initialization
                 if not self.cfg.algo.fixed_initialization:
-                    self.generation_model_path = (
-                        f"model/{self.cfg.model.model_name_short}_{iteration}"
-                    )
-                mlflow.log_param("generation_model_path", self.generation_model_path)
+                    self.model_path_m1 = f"model/{self.cfg.model.model_name_short}_{iteration}"
 
         logger.info("STASC algorithm completed.")
 
@@ -130,7 +128,7 @@ class STASCExecutor(BaseExecutor):
         model = init_model(self.cfg, self.model_path_m1)
         correction_responses = generate_responses(self.cfg, prompts, model, sampling_params)
         unload_model(model)
-        self.evaluate_responses(correction_responses, "train")
+        self.evaluate_responses(correction_responses, "c_train")
         self.track_responses(correction_responses, f"correction_{iteration}")
 
         temp_datasets = []
@@ -157,24 +155,12 @@ class STASCExecutor(BaseExecutor):
             corr_answer_col=f"star_correction_{iteration}",
             id_col=self.cfg.dataset.id_col,
             mode=mode,
-            threshold=0,
         )
         self.train_data.save_to_disk(self.root_folder + f"/iteration_{iteration}")
         self.train_dataset_path = self.root_folder + f"/iteration_{iteration}"
         # Log the train_data (HF dataset) to MLflow as an artifact
         mlflow.log_table(self.train_data.to_pandas(), artifact_file=f"train_data_{iteration}.json")  # type: ignore
         logger.info(f"Finished logging train_data for iteration {iteration} to MLflow")
-
-        stats_test = collect_correction_stats(
-            dataset=self.train_data,  # type: ignore
-            reward_function=RewardEvaluator(self.cfg),
-            reference_col=self.cfg.dataset.gold_col,
-            inital_answer_col="initial_generation",
-            correction_col=f"star_correction_{iteration}",
-        )
-        mlflow.log_metric("CxI", stats_test["correct_to_incorrect"])
-        mlflow.log_metric("CxC", stats_test["correct_to_correct"])
-        mlflow.log_metric("IxC", stats_test["incorrect_to_correct"])
 
     def step_4(self, iteration: int) -> None:
         """Step 4: Fine-Tuning."""
@@ -187,8 +173,8 @@ class STASCExecutor(BaseExecutor):
         logger.info(f"Model Path changed to: {self.cfg.model.model_path}")
 
         run_train(self.cfg, iteration)
-        mlflow.log_param("model_path_m1", self.model_path_m1)
 
         ## Override the new model name
         self.model_path_m1 = f"model/{self.cfg.model.model_name_short}_{iteration}"
         logger.info(f"M1 Path is now: {self.model_path_m1}")
+        mlflow.log_param("model_path_m1", self.model_path_m1)

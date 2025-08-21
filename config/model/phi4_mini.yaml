@@ -4,4 +4,4 @@ defaults:
 
 # Model Configuration
 model_path: "microsoft/Phi-4-mini-instruct"
-model_name_short: "phi4_mini" # Short name for the model
+model_name_short: "phi4_mini"

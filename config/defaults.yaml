@@ -6,7 +6,7 @@ hydra:
 defaults:
   - model: qwen_2.5_1.5b
   - dataset: hotpot
-  - algo: stasc
+  - algo: stasc_FNF
   - training: default
   - lora: default
   - _self_

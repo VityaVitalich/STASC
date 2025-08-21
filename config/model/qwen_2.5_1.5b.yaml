@@ -3,5 +3,5 @@ defaults:
   - _self_
 
 # Model Configuration
-model_path: "Qwen/Qwen2.5-1.5B-Instruct" #'microsoft/Phi-3-mini-4k-instruct' # "Qwen/Qwen2.5-1.5B-Instruct" # "Qwen/Qwen2.5-Math-1.5B-Instruct"
-model_name_short: "qwen_2.5_1.5b" # Short name for the model
+model_path: "Qwen/Qwen2.5-1.5B-Instruct"
+model_name_short: "qwen_2.5_1.5b"

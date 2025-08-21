@@ -116,7 +116,7 @@ def encode_with_messages_format_chat_template(example, tokenizer, architecture):
 def build_training_args(training_cfg: DataTrainingArguments) -> TrainingArguments:
     """Build TrainingArguments for HF Trainer, including FSDP config if present."""
     return TrainingArguments(
-        overwrite_output_dir=True,
+        overwrite_output_dir=False,
         learning_rate=training_cfg.learning_rate,
         num_train_epochs=training_cfg.num_train_epochs,
         per_device_train_batch_size=training_cfg.per_device_train_batch_size,
@@ -136,6 +136,6 @@ def build_training_args(training_cfg: DataTrainingArguments) -> TrainingArgument
         do_train=training_cfg.do_train,
         do_eval=training_cfg.do_eval,
         remove_unused_columns=False,
-        bf16=True,
+        bf16=training_cfg.bf16,
         report_to=["mlflow"],
     )

@@ -58,7 +58,7 @@ class BaseExecutor:
         responses = generate_responses(self.cfg, prompts, model, self.sampling_params)
 
         ## Calculate accuracy
-        self.evaluate_responses(responses, "test")
+        self.evaluate_responses(responses, "i_test")
         return responses
 
     def start_child_run(self, run_name: str) -> mlflow.ActiveRun:

@@ -51,7 +51,6 @@ class Dataset:
 class Model:
     model_path: str
     model_name_short: str
-    cache_dir: str
     gpu_memory_utilization: float
     enforce_eager: bool
     max_model_len: int
@@ -61,7 +60,7 @@ class Model:
     max_tokens: int
     trust_remote_code: bool = False
     use_fast_tokenizer: bool = False
-    torch_dtype: Optional[str] = None
+    torch_dtype: str = ""
     model_revision: str = "main"
 
 
@@ -92,6 +91,7 @@ class DataTrainingArguments:
     logging_steps: int = 1
     do_train: bool = True
     do_eval: bool = False
+    bf16: bool = True
 
 
 @dataclass
