@@ -1,9 +1,12 @@
+import json
 import logging
+import sys
 from pathlib import Path
 
 import mlflow
 import torch
 from datasets import load_from_disk
+from omegaconf import DictConfig, ListConfig, OmegaConf
 from peft import LoraConfig, TaskType, get_peft_model  # pyright: ignore[reportPrivateImportUsage]
 from transformers import (
     AutoConfig,
@@ -28,7 +31,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------
 # 3) The Main Training Logic
 # ---------------------------
-def run_train(cfg: Config, iteration: int) -> None:
+def run_train(cfg: Config, iteration: int, run_id: str) -> None:
     """The main fine-tuning routine using HF Trainer + FSDP via accelerate."""
     # 1) Convert torch_dtype string
     dtype = None
@@ -104,7 +107,8 @@ def run_train(cfg: Config, iteration: int) -> None:
         raise ValueError(
             "No matching columns found. Please have either 'prompt'/'completion' or 'messages' in your dataset."
         )
-    mlflow.log_table(train_dataset.to_pandas(), "train_dataset.json")
+    with mlflow.start_run(run_id=run_id, experiment_id="STASC"):
+        mlflow.log_table(train_dataset.to_pandas(), "train_dataset.json")  # type: ignore
 
     lm_datasets = train_dataset.map(
         encode_function,
@@ -133,11 +137,31 @@ def run_train(cfg: Config, iteration: int) -> None:
     trainer = Trainer(
         model=model,
         args=build_training_args(cfg.training),
-        train_dataset=lm_datasets,
+        train_dataset=lm_datasets,  # type: ignore
         processing_class=tokenizer,
         data_collator=data_collator,
     )
 
     # 9) Train
-    trainer.train()
+    with mlflow.start_run(run_id=run_id, experiment_id="STASC"):
+        trainer.train()
     trainer.save_model(f"model/{cfg.model.model_name_short}_{iteration}")
+
+
+def load_cfg(cfg_path: str) -> DictConfig | ListConfig:
+    """Load config from JSON file into your cfg object."""
+    with open(cfg_path, "r") as f:
+        cfg_dict = json.load(f)
+
+    return OmegaConf.create(cfg_dict)
+
+
+if __name__ == "__main__":
+    cfg_path, iteration, run_id = (
+        sys.argv[1],
+        int(sys.argv[2]),
+        sys.argv[3],
+    )
+
+    cfg = load_cfg(cfg_path)
+    run_train(cfg, iteration, run_id)  # type: ignore

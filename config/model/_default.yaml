@@ -1,7 +1,7 @@
 # Model Configuration
 model_path: ""
 model_name_short: ""
-gpu_memory_utilization: 0.8 # GPU memory utilization (0.0 to 1.0)
+gpu_memory_utilization: 0.5 # GPU memory utilization (0.0 to 1.0)
 enforce_eager: True # Whether to enforce eager execution
 max_model_len: 4096 # Maximum model length
 random_seed: 42

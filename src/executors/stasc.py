@@ -1,16 +1,20 @@
 import copy
+import json
 import logging
+import subprocess
+import sys
+import tempfile
 
 import mlflow
 from datasets import Dataset, concatenate_datasets
 from encourage.llm import ResponseWrapper
+from omegaconf import OmegaConf
 from vllm import LLM, SamplingParams
 
 from config import Config
 from evaluation.eval_utils import RewardEvaluator
 from executors.baseline import BaseExecutor
 from executors.factory import ExecutorRegistry
-from finetune.fine_tune import run_train
 from helper.generation import generate_responses, init_model, unload_model
 from helper.stasc import filter_corrections
 from prompts.enum import get_prompt_builder
@@ -39,7 +43,7 @@ class STASCExecutor(BaseExecutor):
 
     def execute_steps(self) -> None:
         """Executes the steps of the baseline algorithm."""
-        ## Init Generation
+        # Init Generation
         with self.start_child_run("init_generation"):
             mlflow.log_params(flatten_dict(self.cfg))
 
@@ -172,7 +176,21 @@ class STASCExecutor(BaseExecutor):
             self.cfg.model.model_path = self.model_path_m1
         logger.info(f"Model Path changed to: {self.cfg.model.model_path}")
 
-        run_train(self.cfg, iteration)
+        # run_train(self.cfg, iteration)
+        # save cfg temporarily to pass into subprocess
+        cfg_dict = OmegaConf.to_container(self.cfg, resolve=True)
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(cfg_dict, f)
+            cfg_path = f.name
+
+        active_run = mlflow.active_run()
+        run_id = active_run.info.run_id if active_run is not None else ""
+        # run training in subprocess -> guaranteed VRAM cleanup when it exits
+        subprocess.run(
+            [sys.executable, "src/finetune/fine_tune.py", cfg_path, str(iteration), run_id],
+            check=True,
+        )
 
         ## Override the new model name
         self.model_path_m1 = f"model/{self.cfg.model.model_name_short}_{iteration}"
