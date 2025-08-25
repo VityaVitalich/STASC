@@ -3,6 +3,5 @@ defaults:
   - _self_
 
 name: debate_common
-run_name_specification: ""
 finalize_judge: false
 number_output_corrections: 4

@@ -3,11 +3,14 @@
 
 from typing import List
 
-from prompts.base import BasePromptBuilder
-from prompts.prompt_schemas import compose_chat_messages
+from datasets import Dataset
+from encourage.prompts import Conversation, MetaData, Prompt, PromptCollection
+
+from config import Config
+from prompts.baseline_builder import BaselineCOTPromptBuilder
 
 
-class DebatePromptBuilder(BasePromptBuilder):
+class DebatePromptBuilder(BaselineCOTPromptBuilder):
     initial_system_prompt: str = ""
     initial_instructions: str = ""
     verification_plan_prompt: str = ""
@@ -17,124 +20,105 @@ class DebatePromptBuilder(BasePromptBuilder):
     finalize_instructions: str = ""
     most_common_instructions: str = ""
 
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, cfg: Config) -> None:
         self.judge_prompt = (
             self.finalize_instructions
-            if config["finalize_judge"]
+            if cfg.algo.finalize_judgement
             else self.most_common_instructions
         )
-        self.question_col = config["question_col"]
 
-    def _create_user_question(self, question_text: str):
-        return (
-            f"Question:\n{question_text}\n\n"
-            "Reason step by step very shortly, then conclude with the answer. "
-            "Strictly follow format Step-by-step reasoning: and Final Answer:"
-        )
-
-    def _concat_corrections(self, corrections: List):
-        result = ""
-        for _, _correction in enumerate(corrections):
-            result += "Correction {i}: {correction}\n\n"
-        return result
-
-    def build_initial_generation_prompt(
+    def build_correction_prompts(
         self,
-        sample,
-        tokenizer,
-        few_shot_prompts=None,
-        tokenize=False,
-        context_col="context",
-        *args,
-        **kwargs,
-    ):
-        # Build user question
-        question_text = sample[self.question_col]
-        user_question = self._create_user_question(question_text)
+        dataset: Dataset,
+        initial_answer_col: str = "initial_generation",
+        few_shot_prompts: List[dict] = [],
+    ) -> PromptCollection:
+        """Builds prompts for planning verification of initial responses."""
+        prompts = []
 
-        # Compose messages
-        messages = compose_chat_messages(
-            system_prompt=self.system_prompt_init,
-            instructions=self.initial_instructions,
-            user_question=user_question,
-            few_shot_prompts=few_shot_prompts,
-        )
+        for sample in dataset:
+            sample = sample if isinstance(sample, dict) else sample.to_dict()  # type: ignore
+            question_text = sample.get(self.question_col, "")
+            user_question = self._create_user_question(question_text)
 
-        # Return merged prompt
-        return tokenizer.apply_chat_template(
-            messages, tokenize=tokenize, add_generation_prompt=True, enable_thinking=False
-        )
+            # Prepend context if needed
+            if self.use_init_context:
+                user_question = self._prepend_context(user_question, sample, self.context_col)
 
-    def build_correction_prompt(
-        self,
-        sample,
-        tokenizer,
-        initial_answer_col="inital_answer",
-        few_shot_prompts=None,
-        tokenize=False,
-        *args,
-        **kwargs,
-    ):
-        question_text = sample[self.question_col]
-        user_question = self._create_user_question(question_text)
+            conversation = Conversation(user_prompt=self.system_prompt_init)
+            conversation.add_message("user", self.initial_instructions)
+            conversation.add_message("user", user_question)
+            conversation.add_message("assistant", sample.get(initial_answer_col, ""))
+            conversation.add_message("user", self.correction_instructions)
 
-        initial_answers = sample.get(initial_answer_col, [])
-
-        all_correction_prompts = []
-        for init_ans in initial_answers:
-            messages = [
-                {"role": "system", "content": self.system_prompt_init},
-                {"role": "user", "content": self.initial_instructions},
-                {"role": "user", "content": user_question},
-                {"role": "assistant", "content": init_ans},
-                {"role": "user", "content": self.correction_instructions},
-            ]
-
+            # Add few-shot examples
             if few_shot_prompts:
-                messages.extend(few_shot_prompts)
+                for prompt in few_shot_prompts:
+                    conversation.add_message("user", prompt["prompts"][0])
 
-            # Convert messages to final text
-            final_prompt = tokenizer.apply_chat_template(
-                messages, tokenize=tokenize, add_generation_prompt=True, enable_thinking=False
+            prompts.append(
+                Prompt(
+                    id=sample.get("id", ""),  # or pass id_col if you have a column
+                    conversation=conversation,
+                    meta_data=MetaData(
+                        {
+                            "reference_answer": sample.get(self.config.dataset.gold_col, ""),
+                            "initial_answer": sample.get(initial_answer_col, ""),
+                        }
+                    ),
+                )
             )
-            all_correction_prompts.append(final_prompt)
 
-        return all_correction_prompts
+        return PromptCollection.from_prompts(prompts)
 
-    def build_judge_prompt(
+    def build_judge_prompts(
         self,
-        sample,
-        tokenizer,
-        question_col="question",
-        initial_answer_col="initial_generation",
-        correction_col="correction",
-        few_shot_prompts=None,
-        tokenize=False,
-        *args,
-        **kwargs,
-    ):
-        question_text = sample[self.question_col]
-        user_question = self._create_user_question(question_text)
+        dataset: Dataset,
+        initial_answer_col: str = "initial_generation",
+        correction_col: str = "correction",
+        few_shot_prompts: List[dict] = [],
+    ) -> PromptCollection:
+        """Builds prompts for judging corrections of initial responses."""
+        prompts = []
 
-        initial_answers = sample.get(initial_answer_col, [])[0]
-        all_corrections = self._concat_corrections(sample[correction_col])
+        for sample in dataset:
+            sample = sample if isinstance(sample, dict) else sample.to_dict()  # type: ignore
+            question_text = sample.get(self.question_col, "")
+            user_question = self._create_user_question(question_text)
 
-        messages = [
-            {
-                "role": "user",
-                "content": (question_text + initial_answers + all_corrections + self.judge_prompt),
-            },
-        ]
+            # Prepend context if needed
+            if self.use_init_context:
+                user_question = self._prepend_context(user_question, sample, self.context_col)
 
-        return tokenizer.apply_chat_template(
-            messages, tokenize=tokenize, add_generation_prompt=True, enable_thinking=False
-        )
+            initial_answer = sample.get(initial_answer_col, "")
+            all_corrections = self._concat_corrections(sample.get(correction_col, []))
 
-    def build_correction_messages_with_final_answer(
-        self, question, init_answer, correction, all_context, few_shot_prompts=None, *args, **kwargs
-    ):
-        pass
+            conversation = Conversation(user_prompt=self.system_prompt)
+            conversation.add_message("user", user_question)
+            conversation.add_message("assistant", initial_answer)
+            conversation.add_message("assistant", all_corrections)
+            conversation.add_message("user", self.judge_prompt)
+
+            # Add few-shot examples
+            if few_shot_prompts:
+                for prompt in few_shot_prompts:
+                    conversation.add_message("user", prompt["prompts"][0])
+
+            prompts.append(
+                Prompt(
+                    id=sample.get("id", ""),
+                    conversation=conversation,
+                    meta_data=MetaData(
+                        {
+                            "reference_answer": sample.get(self.config.dataset.gold_col, ""),
+                            "initial_answer": initial_answer,
+                            "corrections": all_corrections,
+                        }
+                    ),
+                )
+            )
+
+        return PromptCollection.from_prompts(prompts)
 
 
 class DebateQAPromptBuilder(DebatePromptBuilder):

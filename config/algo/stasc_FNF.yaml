@@ -1,0 +1,8 @@
+defaults:
+  - _default
+  - _self_
+
+name: stasc_FNF
+fixed_initialization: True
+improving_filter: False
+fixed_fine_tuning: True

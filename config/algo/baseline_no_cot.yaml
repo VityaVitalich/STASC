@@ -4,4 +4,3 @@ defaults:
 
 name: baseline_no_cot
 use_cot: False
-run_name_specification: ""

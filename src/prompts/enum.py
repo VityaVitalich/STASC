@@ -1,41 +1,48 @@
 from enum import Enum
-from typing import Type
+from typing import Any, Type
 
-from prompts.base import BasePromptBuilder
-from prompts.baseline_builder import BaselineMathPromptBuilder, BaselineQAPromptBuilder
-from prompts.cove_builder import CoVeMathPromptBuilder, CoVeQAPromptBuilder
-from prompts.debate_builder import DebateQAPromptBuilder
-from prompts.math_builder import ScoreMathPromptBuilder
-from prompts.qa_builder import QAPromptBuilder
-from prompts.self_refine_builder import SelfRefineMathPromptBuilder, SelfRefineQAPromptBuilder
+from prompts.baseline_builder import (
+    BaselineCOTPromptBuilder,
+    BaselineNoCOTPromptBuilder,
+)
+from prompts.cove_builder import CoVeQAPromptBuilder
+from prompts.stasc_builder import StascQABuilder, StascRAGBuilder
 
 
 class PromptBuilderType(Enum):
-    QA = "qa"
-    MATH = "math"
-    SELF_REFINE_QA = "self_refine_qa"
-    SELF_REFINE_MATH = "self_refine_math"
-    BASELINE_QA = "baseline_qa"
-    BASELINE_MATH = "baseline_math"
-    COVE_QA = "cove_qa"
-    COVE_MATH = "cove_math"
-    DEBATE_QA = "debate_qa"
+    BASELINE_COT = "baseline_cot"
+    BASELINE_NO_COT = "baseline_no_cot"
+    COVE = "cove"
+    STASC = "stasc"
+    STASC_EIE = "stasc_eie"
+    STASC_EIF = "stasc_eif"
+    STASC_ENE = "stasc_ene"
+    STASC_ENF = "stasc_enf"
+    STASC_FIE = "stasc_fie"
+    STASC_FIF = "stasc_fif"
+    STASC_FNE = "stasc_fne"
+    STASC_FNF = "stasc_fnf"
+    STASC_RAG = "stasc_rag"
 
 
 PROMPT_BUILDERS = {
-    PromptBuilderType.QA: QAPromptBuilder,
-    PromptBuilderType.MATH: ScoreMathPromptBuilder,
-    PromptBuilderType.SELF_REFINE_QA: SelfRefineQAPromptBuilder,
-    PromptBuilderType.SELF_REFINE_MATH: SelfRefineMathPromptBuilder,
-    PromptBuilderType.BASELINE_QA: BaselineQAPromptBuilder,
-    PromptBuilderType.BASELINE_MATH: BaselineMathPromptBuilder,
-    PromptBuilderType.COVE_QA: CoVeQAPromptBuilder,
-    PromptBuilderType.COVE_MATH: CoVeMathPromptBuilder,
-    PromptBuilderType.DEBATE_QA: DebateQAPromptBuilder,
+    PromptBuilderType.BASELINE_COT: BaselineCOTPromptBuilder,
+    PromptBuilderType.BASELINE_NO_COT: BaselineNoCOTPromptBuilder,
+    PromptBuilderType.COVE: CoVeQAPromptBuilder,
+    PromptBuilderType.STASC: StascQABuilder,
+    PromptBuilderType.STASC_EIE: StascQABuilder,
+    PromptBuilderType.STASC_EIF: StascQABuilder,
+    PromptBuilderType.STASC_ENE: StascQABuilder,
+    PromptBuilderType.STASC_ENF: StascQABuilder,
+    PromptBuilderType.STASC_FIE: StascQABuilder,
+    PromptBuilderType.STASC_FIF: StascQABuilder,
+    PromptBuilderType.STASC_FNE: StascQABuilder,
+    PromptBuilderType.STASC_FNF: StascQABuilder,
+    PromptBuilderType.STASC_RAG: StascRAGBuilder,
 }
 
 
-def get_prompt_builder(task_type: str) -> Type[BasePromptBuilder]:
+def get_prompt_builder(task_type: str) -> Type[Any]:
     try:
         enum_type = PromptBuilderType(task_type.lower())
         return PROMPT_BUILDERS[enum_type]

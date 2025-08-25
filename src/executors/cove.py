@@ -1,0 +1,131 @@
+import logging
+from typing import Any, override
+
+import mlflow
+from datasets import Dataset
+from encourage.llm import ResponseWrapper
+from vllm import LLM, SamplingParams
+
+from config import Config
+from evaluation.eval_utils import RewardEvaluator
+from executors.baseline import BaseExecutor
+from executors.factory import ExecutorRegistry
+from helper.generation import generate_responses, init_model
+from helper.stasc import collect_correction_stats, dataset_to_df
+from prompts.cove_builder import CoVePromptBuilder
+from prompts.enum import get_prompt_builder
+from prompts.prompt_schemas import load_few_shot_prompts
+from utils.flatten import flatten_dict
+
+logger = logging.getLogger(__name__)
+
+
+@ExecutorRegistry.register("cove")
+class CoveExecutor(BaseExecutor):
+    def __init__(
+        self,
+        cfg: Config,
+        test_data: Dataset,
+        train_data: Dataset,
+        sampling_params: SamplingParams,
+    ) -> None:
+        super().__init__(cfg, test_data, train_data, sampling_params)
+        self.prompt_builder: CoVePromptBuilder = get_prompt_builder(cfg.algo.name)(self.cfg)
+        self.model = init_model(self.cfg)
+
+    def execute_steps(self) -> None:
+        """Executes the steps of the baseline algorithm."""
+        with self.start_child_run("initial_generation"):
+            mlflow.log_params(flatten_dict(self.cfg))
+            responses = self.step_1(self.test_data, self.model)
+            self.track_responses(responses, 1)
+        with self.start_child_run("verification_plan"):
+            responses = self.step_2(responses)
+            self.track_responses(responses, 2)
+        with self.start_child_run("verification_execution"):
+            responses = self.step_3(responses)
+            self.track_responses(responses, 3)
+        with self.start_child_run("revision"):
+            responses = self.step_4(responses)
+            self.track_responses(responses, 4)
+
+    @override
+    def step_1(self, dataset: Dataset, model: LLM) -> Any:
+        ## Prompt builder
+        few_shot_prompts = load_few_shot_prompts(self.cfg.dataset.few_shot_dir, "generation")
+        prompts = self.prompt_builder.build_initial_generation_prompts(
+            dataset=dataset,
+            id_col=self.cfg.dataset.id_col,
+            reference_col=self.cfg.dataset.gold_col,
+            few_shot_prompts=few_shot_prompts,
+        )
+        responses = generate_responses(self.cfg, prompts, model, self.sampling_params)
+
+        ## Calculate accuracy
+        self.evaluate_responses(responses, "i_test")
+        return responses
+
+    def step_2(self, responses: ResponseWrapper) -> Any:
+        few_shot_prompts = load_few_shot_prompts(
+            self.cfg.dataset.few_shot_dir, "cove_verification_plan"
+        )
+        self.test_data = self.test_data.add_column(
+            "initial_generation",
+            [response.response for response in responses],
+        )
+        prompts = self.prompt_builder.build_verification_plan_prompt(
+            dataset=self.test_data,
+            initial_answer_col="initial_generation",
+            few_shot_prompts=few_shot_prompts,
+        )
+        responses = generate_responses(self.cfg, prompts, self.model, self.sampling_params)
+
+        ## Calculate accuracy
+        self.evaluate_responses(responses, "i_test")
+        return responses
+
+    def step_3(self, responses: ResponseWrapper) -> Any:
+        few_shot_prompts = load_few_shot_prompts(
+            self.cfg.dataset.few_shot_dir, "cove_verification_execution"
+        )
+        self.test_data = self.test_data.add_column(
+            "verification_plan",
+            [response.response for response in responses],
+        )
+        prompts = self.prompt_builder.build_verification_execution_prompt(
+            dataset=self.test_data,
+            verification_plan_col="verification_plan",
+            few_shot_prompts=few_shot_prompts,
+        )
+        responses = generate_responses(self.cfg, prompts, self.model, self.sampling_params)
+        ## Calculate accuracy
+        self.evaluate_responses(responses, "i_test")
+        return responses
+
+    def step_4(self, responses: ResponseWrapper) -> Any:
+        few_shot_prompts = load_few_shot_prompts(self.cfg.dataset.few_shot_dir, "cove_revision")
+        self.test_data = self.test_data.add_column(
+            "cove_revision",
+            [response.response for response in responses],
+        )
+        prompts = self.prompt_builder.build_correction_prompts(
+            dataset=self.test_data,
+            initial_answer_col="initial_generation",
+            verification_execution_col="verification_plan",
+            few_shot_prompts=few_shot_prompts,
+        )
+        responses = generate_responses(self.cfg, prompts, self.model, self.sampling_params)
+        ## Calculate accuracy
+        self.evaluate_responses(responses, "i_test")
+
+        df = dataset_to_df(
+            self.test_data,
+            reward_function=RewardEvaluator(self.cfg),
+            reference_col=self.cfg.dataset.gold_col,
+            init_answer_col="initial_generation",
+            corr_answer_col="cove_revision",
+        )
+
+        collect_correction_stats(df)
+
+        return responses

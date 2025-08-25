@@ -1,0 +1,7 @@
+use_lora: false
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.1
+lora_target_modules:
+  - "query_key_value"
+dora: false

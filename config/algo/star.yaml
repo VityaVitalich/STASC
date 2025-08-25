@@ -1,0 +1,8 @@
+defaults:
+  - _default
+  - _self_
+
+name: star
+fixed_initialization: True
+improving_filter: True
+fixed_fine_tuning: True

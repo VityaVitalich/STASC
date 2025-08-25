@@ -1,11 +1,11 @@
 """Utilities for flatten dict."""
 
 from dataclasses import asdict, is_dataclass
-from typing import Any
+from typing import Any, List, Union
 
 from omegaconf import ListConfig
 
-from configs.config import Config
+from config import Config
 
 
 def _process_values(value: Any) -> dict[str, str | int | float]:
@@ -49,3 +49,14 @@ def flatten_dict(config: dict | Config | Any) -> dict[str, str | int | float]:
     return {
         f"{key}{k}": v for key, value in config.items() for k, v in _process_values(value).items()
     }
+
+
+def flatten_predictions(predictions: Union[Any, List[Any]]) -> List[Any]:
+    stack, result = [predictions], []
+    while stack:
+        current = stack.pop()
+        if isinstance(current, list):
+            stack.extend(reversed(current))
+        else:
+            result.append(current)
+    return result

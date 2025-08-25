@@ -3,4 +3,3 @@ defaults:
   - _self_
 
 name: cove
-run_name_specification: ""

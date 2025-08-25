@@ -1,17 +1,19 @@
-use_cot: false
-run_name_specification: ""
-use_init_context: false
+name: ""
+
+## COT & RAG
+use_cot: True
+use_init_context: False
 num_documents: 0
-use_corr_context: false
-num_star_iterations: 0
+use_corr_context: False
 
-initial_answer_with_new_model: true
-only_better_correction: true
-train_from_initial_model: true
+num_iterations: 10
 
-number_output_initial_generations: 1
-number_output_corrections: 1
+## STASC Parameter
+fixed_initialization: False
+improving_filter: False
+fixed_fine_tuning: False
+number_corrections: 3
 
-finalize_judgement: false
+finalize_judgement: False
 
 num_refine_iterations: 5

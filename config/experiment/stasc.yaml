@@ -1,0 +1,5 @@
+# @package _global_
+hydra:
+  sweeper:
+    params:
+      algo: stasc_EIE, stasc_EIF, stasc_ENE, stasc_ENF, stasc_FIE, stasc_FIF, stasc_FNE, stasc_FNF

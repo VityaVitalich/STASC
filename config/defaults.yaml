@@ -6,9 +6,10 @@ hydra:
 defaults:
   - model: qwen_2.5_1.5b
   - dataset: hotpot
-  - algo: baseline_cot
+  - algo: stasc_FNF
+  - training: default
+  - lora: default
   - _self_
 
-base_url: http://localhost:${vllm_port}/v1/
-vllm_port: 18123
 run_name: ${model.model_name_short}_${dataset.name}_${algo.name}
+accelerate_config_path: config/accelerate.yaml

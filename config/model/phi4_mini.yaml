@@ -1,13 +1,7 @@
+defaults:
+  - _default
+  - _self_
+
 # Model Configuration
 model_path: "microsoft/Phi-4-mini-instruct"
-model_name_short: "phi4_mini" # Short name for the model
-cache_dir: "/home/data/v.moskvoretskii/cache/"
-gpu_memory_utilization: 0.95 # GPU memory utilization (0.0 to 1.0)
-enforce_eager: False # Whether to enforce eager execution
-max_model_len: 4096 # Maximum model length
-random_seed: 42
-
-# Sampling Parameters
-temperature: 0.7 # Sampling temperature
-top_p: 0.8 # Top-p (nucleus) sampling
-max_tokens: 2048 # Maximum number of tokens to generate
+model_name_short: "phi4_mini"

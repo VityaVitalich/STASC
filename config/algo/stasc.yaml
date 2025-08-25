@@ -3,12 +3,8 @@ defaults:
   - _self_
 
 name: stasc
-num_star_iterations: 1
-run_name_specification: ""
-
-initial_answer_with_new_model: True
-only_better_correction: True
-train_from_initial_model: True
-
-number_output_initial_generations: 1
-number_output_corrections: 3
+num_iterations: 2
+fixed_initialization: True
+improving_filter: False
+fixed_fine_tuning: True
+number_corrections: 3
