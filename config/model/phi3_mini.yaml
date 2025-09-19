@@ -1,0 +1,7 @@
+defaults:
+  - _default
+  - _self_
+
+# Model Configuration
+model_path: "microsoft/Phi-3-mini-128k-instruct"
+model_name_short: "phi3_mini"

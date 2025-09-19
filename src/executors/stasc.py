@@ -4,18 +4,19 @@ import logging
 import subprocess
 import sys
 import tempfile
+from multiprocessing import Process, Queue
 
 import mlflow
 from datasets import Dataset, concatenate_datasets
 from encourage.llm import ResponseWrapper
 from omegaconf import OmegaConf
-from vllm import LLM, SamplingParams
+from vllm import SamplingParams
 
 from config import Config
 from evaluation.eval_utils import RewardEvaluator
 from executors.baseline import BaseExecutor
 from executors.factory import ExecutorRegistry
-from helper.generation import generate_responses, init_model, unload_model
+from helper.generation import execute_llm_call, transform_json_to_responses
 from helper.stasc import filter_corrections
 from prompts.enum import get_prompt_builder
 from prompts.prompt_schemas import load_few_shot_prompts
@@ -47,15 +48,18 @@ class STASCExecutor(BaseExecutor):
         with self.start_child_run("init_generation"):
             mlflow.log_params(flatten_dict(self.cfg))
 
-            root_model = init_model(self.cfg, self.root_model_path_m0)
-            test_responses = self.step_1(self.test_data, root_model)
-            train_responses = self.step_1(self.root_train_data, root_model)
-            unload_model(root_model)
+            test_responses = self.step_1(self.test_data, self.root_model_path_m0)
             self.evaluate_responses(test_responses, "i_test")
+            train_responses = self.step_1(self.root_train_data, self.root_model_path_m0)
             self.evaluate_responses(train_responses, "i_train")
 
             self.track_responses(test_responses, "test_init")
             self.track_responses(train_responses, "train_init")
+
+            self.test_data = self.test_data.add_column(
+                "initial_generation",
+                [response.response for response in test_responses],
+            )
 
             self.root_train_data = self.root_train_data.add_column(
                 "initial_generation",
@@ -68,9 +72,8 @@ class STASCExecutor(BaseExecutor):
 
                 ## Step 1: Sample Initial Answers
                 if not self.cfg.algo.fixed_initialization:
-                    model = init_model(self.cfg, self.model_path_m1)
-                    train_responses = self.step_1(self.root_train_data, model)
-                    unload_model(model)
+                    train_responses = self.step_1(self.root_train_data, self.model_path_m1)
+                    self.evaluate_responses(train_responses, "i_train")
 
                     self.root_train_data = self.root_train_data.remove_columns("initial_generation")
                     self.root_train_data = self.root_train_data.add_column(
@@ -81,7 +84,7 @@ class STASCExecutor(BaseExecutor):
 
                 ## Step 2: Sample Corrections
                 logger.info("\nStarting Step 2: Sample Corrections\n")
-                self.step_2(iteration)
+                self.step_2(iteration, self.root_train_data)
 
                 ## Step 3: Filter Corrections
                 ## Deciding how corrections are filtered
@@ -93,11 +96,7 @@ class STASCExecutor(BaseExecutor):
                 self.step_4(iteration)
 
                 ## Step 5: Track Performance on Test Set
-                model = init_model(self.cfg, self.model_path_m1)
-                test_responses = self.step_1(self.test_data, model)
-                self.track_responses(test_responses, f"test_{iteration}")
-                unload_model(model)
-                self.evaluate_responses(test_responses, "i_test")
+                self.step_5()
 
                 ## Update Generation Model Path for Step 1 to get Evolving Initialization
                 if not self.cfg.algo.fixed_initialization:
@@ -105,33 +104,55 @@ class STASCExecutor(BaseExecutor):
 
         logger.info("STASC algorithm completed.")
 
-    def step_1(self, dataset: Dataset, model: LLM) -> ResponseWrapper:
+    def step_1(self, dataset: Dataset, model_path: str) -> ResponseWrapper:
         few_shot_prompts = load_few_shot_prompts(self.cfg.dataset.few_shot_dir, "generation")
-        """Initial generation step."""
-        # Prompt builder
         prompts = self.prompt_builder.build_initial_generation_prompts(
             dataset=dataset,
             id_col=self.cfg.dataset.id_col,
             reference_col=self.cfg.dataset.gold_col,
             few_shot_prompts=few_shot_prompts,
         )
-        return generate_responses(self.cfg, prompts, model, self.sampling_params)
+        q = Queue()
+        p = Process(
+            target=execute_llm_call,
+            args=(
+                self.cfg,
+                model_path,
+                prompts,
+                self.sampling_params,
+                q,
+            ),
+        )
+        p.start()
+        p.join()
+        return transform_json_to_responses(q.get())
 
-    def step_2(self, iteration: int) -> None:
+    def step_2(self, iteration: int, dataset: Dataset) -> None:
         """Step 2: Sample Corrections."""
         few_shot_prompts = load_few_shot_prompts(self.cfg.dataset.few_shot_dir, "correction")
         # Prompt builder
         prompts = self.prompt_builder.build_correction_prompts(
-            dataset=self.root_train_data,
+            dataset=dataset,
             initial_answer_col="initial_generation",
             few_shot_prompts=few_shot_prompts,
         )
         sampling_params = copy.deepcopy(self.sampling_params)
         sampling_params.n = self.cfg.algo.number_corrections
         sampling_params.seed = None
-        model = init_model(self.cfg, self.model_path_m1)
-        correction_responses = generate_responses(self.cfg, prompts, model, sampling_params)
-        unload_model(model)
+        q = Queue()
+        p = Process(
+            target=execute_llm_call,
+            args=(
+                self.cfg,
+                self.root_model_path_m0,
+                prompts,
+                sampling_params,
+                q,
+            ),
+        )
+        p.start()
+        p.join()
+        correction_responses = transform_json_to_responses(q.get())
         self.evaluate_responses(correction_responses, "c_train")
         self.track_responses(correction_responses, f"correction_{iteration}")
 
@@ -176,7 +197,6 @@ class STASCExecutor(BaseExecutor):
             self.cfg.model.model_path = self.model_path_m1
         logger.info(f"Model Path changed to: {self.cfg.model.model_path}")
 
-        # run_train(self.cfg, iteration)
         # save cfg temporarily to pass into subprocess
         cfg_dict = OmegaConf.to_container(self.cfg, resolve=True)
 
@@ -196,3 +216,34 @@ class STASCExecutor(BaseExecutor):
         self.model_path_m1 = f"model/{self.cfg.model.model_name_short}_{iteration}"
         logger.info(f"M1 Path is now: {self.model_path_m1}")
         mlflow.log_param("model_path_m1", self.model_path_m1)
+
+    def step_5(self) -> None:
+        """Step 5: Track Performance on Test Set."""
+        ## Build Correction Prompts
+        few_shot_prompts = load_few_shot_prompts(self.cfg.dataset.few_shot_dir, "correction")
+        # Prompt builder
+        prompts = self.prompt_builder.build_correction_prompts(
+            dataset=self.test_data,
+            initial_answer_col="initial_generation",
+            few_shot_prompts=few_shot_prompts,
+        )
+
+        ## Evaluate Corrections on Test Set
+        sampling_params = copy.deepcopy(self.sampling_params)
+        sampling_params.n = self.cfg.algo.number_corrections
+        sampling_params.seed = None
+        q = Queue()
+        p = Process(
+            target=execute_llm_call,
+            args=(
+                self.cfg,
+                self.model_path_m1,
+                prompts,
+                sampling_params,
+                q,
+            ),
+        )
+        p.start()
+        p.join()
+        correction_responses = transform_json_to_responses(q.get())
+        self.evaluate_responses(correction_responses, "c_test")

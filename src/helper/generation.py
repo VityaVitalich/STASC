@@ -1,19 +1,34 @@
-import contextlib
-import gc
-from typing import Optional
+import json
+import tempfile
+from multiprocessing import Queue
+from pathlib import Path
+from typing import Any, Optional
 
-import ray
 import torch
-from encourage.llm import ResponseWrapper
+from encourage.llm import Response, ResponseWrapper
 from encourage.prompts import PromptCollection
 from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
-from vllm.distributed.parallel_state import (
-    destroy_distributed_environment,
-    destroy_model_parallel,
-)
 
 from config import Config
+
+
+def execute_llm_call(
+    cfg: Config,
+    model_path: str,
+    prompts: Any,
+    sampling_params: SamplingParams,
+    queue: Queue,
+) -> None:
+    """Executes an LLM call and returns the responses."""
+    model = init_model(cfg, model_path=model_path)
+    responses = generate_responses(cfg, prompts, model, sampling_params)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_out:
+        out_path = Path(tmp_out.name)
+    with open(out_path, "w") as f:
+        responses = [response.to_dict() for response in responses.response_data]
+        json.dump(responses, f)
+    queue.put(out_path)
 
 
 def generate_responses(
@@ -64,15 +79,13 @@ def init_model(cfg: Config, model_path: Optional[str] = None) -> LLM:
     )
 
 
-def unload_model(model: LLM) -> None:
-    # Delete the llm object and free the memory
-    destroy_model_parallel()
-    destroy_distributed_environment()
-    del model.llm_engine.model_executor
-    del model
-    with contextlib.suppress(AssertionError):
-        torch.distributed.destroy_process_group()
-    gc.collect()
-    torch.cuda.empty_cache()
-    ray.shutdown()
-    print("Successfully delete the llm pipeline and free the GPU memory.")
+def transform_json_to_responses(responses_path: str) -> ResponseWrapper:
+    with open(responses_path, "r") as f:
+        json_file = json.load(f)
+    responses = []
+    for i in range(0, len(json_file)):
+        response = {key: value for key, value in json_file[i].items() if key != "processing_time"}
+        response = Response.from_dict(response)
+        responses.append(response)
+    responses = ResponseWrapper(responses=responses)
+    return responses

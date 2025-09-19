@@ -34,11 +34,13 @@ def main(cfg: Config):
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     mlflow.set_experiment("STASC")
 
-    with mlflow.start_run(run_name=cfg.algo.name + "_" + str(random.choice(range(1000)))):
+    with mlflow.start_run(
+        run_name=cfg.algo.name + "_" + str(random.choice(range(1000))), log_system_metrics=True
+    ):
         logger.info(f"[INFO] Starting MLflow run with name: {cfg.run_name}")
         mlflow.log_params(flatten_dict(cfg))
         # Load dataset
-        test_data: Dataset = datasets.load_dataset(cfg.dataset.data_path, split=cfg.dataset.split)  # type: ignore
+        test_data: Dataset = datasets.load_dataset(cfg.dataset.data_path, split="test")  # type: ignore
         train_data: Dataset = datasets.load_dataset(cfg.dataset.data_path, split="train")  # type: ignore
         mlflow.log_input(
             mlflow.data.pandas_dataset.from_pandas(

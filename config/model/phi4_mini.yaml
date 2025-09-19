@@ -3,5 +3,5 @@ defaults:
   - _self_
 
 # Model Configuration
-model_path: "microsoft/Phi-4-mini-instruct"
+model_path: "microsoft/phi-4-mini-instruct"
 model_name_short: "phi4_mini"

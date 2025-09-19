@@ -1,7 +1,7 @@
 # Dataset Configuration
 name: "math500" # Name of the dataset
 task_type: "math" # "qa" or "math"
-data_path: "data/datasets/math500"
+data_path: "VityaVitalich/MATH500"
 id_col: "unique_id" # Unique identifier column in the dataset. "question_id" for QA, "problem" for "unique_id"
 question_col: "problem" # Column containing the question text. "question_text" for QA, "problem" for math500
 gold_col: "answer" # Reference/GT answer column. "reference" for QA, "answer" for math500
